@@ -21,9 +21,8 @@ void clear(char message[], int length)
 class Session : public std::enable_shared_from_this<Session> {
 public:
     // server folder path added to constructor
-    Session(tcp::socket socket, std::string folder_path) : 
-        socket_(std::move(socket)), 
-        folder_path_(std::move(folder_path)) {}
+    Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, std::string folder_path)
+        : socket_(std::move(socket)), folder_path_(std::move(folder_path)) {}
 
     void start() {
         do_read_header();
@@ -34,6 +33,36 @@ public:
     }
 
 private:
+    boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket_;
+    enum
+    {
+        header_length = 8
+    }; // without filename
+    char header_[header_length];
+
+    // Op codes
+    static const uint8_t OP_SAVE_FILE = 100;
+    static const uint8_t OP_RESTORE_FILE = 200;
+    static const uint8_t OP_DELETE_FILE = 201;
+    static const uint8_t OP_GET_FILE_LIST = 202;
+
+    // Header fields
+    uint32_t user_id_; // 4 bytes
+    uint8_t version_;
+    uint8_t op_;           // operation code
+    uint16_t name_len_;    // length of filename
+    std::string filename_; // filename size is variable
+
+    // Payload fields
+    uint32_t file_size_;        // unit32_t is 4 bytes
+    std::string file_contents_; // file contents size is variable
+
+    // extra fields
+    std::string backup_dir_;
+    std::string folder_path_;
+    std::vector<std::string> file_list_;
+
+
     enum class Status : uint16_t
     {
         SUCCESS_SAVE = 210,
@@ -43,6 +72,8 @@ private:
         FAILURE = 1003,         // general error status
         PROCESSING = 1 // default status, still processing request - for inner use
     };
+
+    Status status_ = Status::PROCESSING; // default status is failure
 
     Status get_status()
     {
@@ -263,8 +294,8 @@ private:
         case OP_GET_FILE_LIST:
             get_file_list();
         default:
-            std::cerr << "Error: invalid op code" << std::endl;
-            status_= Status::FAILURE;
+            std::cerr << "Error: invalid op code: " << static_cast<int>(op_) << std::endl;
+            status_ = Status::FAILURE;
         }
     }
 
@@ -332,63 +363,18 @@ private:
         //                              }
         //                          });
     }
-    
 
-
-
-    tcp::socket socket_;
-    
-    enum { header_length = 8 }; // without filename
-    char header_[header_length];
-
-    // Op codes
-    static const uint8_t OP_SAVE_FILE = 100;
-    static const uint8_t OP_RESTORE_FILE = 200;
-    static const uint8_t OP_DELETE_FILE = 201;
-    static const uint8_t OP_GET_FILE_LIST = 202;
-
-    // Header fields
-    uint32_t user_id_;                    // 4 bytes
-    uint8_t version_;
-    uint8_t op_; // operation code
-    uint16_t name_len_;       // length of filename  
-    std::string filename_; // filename size is variable
-
-    // Payload fields
-    uint32_t file_size_; // unit32_t is 4 bytes
-    std::string file_contents_; // file contents size is variable
-
-    // extra fields
-    std::string backup_dir_;
-    std::string folder_path_;
-    std::vector<std::string> file_list_;
-
-    Status status_ = Status::PROCESSING; // default status is failure
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 class Server
 {
 public:
-    Server(boost::asio::io_context &io_context, unsigned short port)
-        : acceptor_(io_context, tcp::endpoint(tcp::v4(), port))
+    Server(boost::asio::io_context &io_context, unsigned short port, const std::string &folder_path)
+        : acceptor_(io_context, tcp::endpoint(tcp::v4(), port)),
+          folder_path_(folder_path) // Store the folder path
     {
         // Create backup directory if it doesn't exist
-        boost::filesystem::path backup_dir("backupssvr");
+        boost::filesystem::path backup_dir(folder_path); // Use the provided folder_path
         if (!boost::filesystem::exists(backup_dir))
         {
             boost::filesystem::create_directory(backup_dir);
@@ -401,27 +387,18 @@ private:
     void accept()
     {
         acceptor_.async_accept([this](boost::system::error_code ec, tcp::socket socket)
-            {
-                if (!ec)
-                {
-                    std::make_shared<Session>(std::move(socket))->start();
-                }
-                accept(); // Continue accepting
-            });
+                               {
+                                   if (!ec)
+                                   {
+                                       std::make_shared<Session>(std::move(socket), folder_path_)->start(); // Pass the folder_path_ to Session
+                                   }
+                                   accept(); // Continue accepting
+                               });
     }
 
     tcp::acceptor acceptor_;
+    std::string folder_path_; // Added member variable for folder path
 };
-
-
-
-
-
-
-
-
-
-
 
 int main(int argc, char *argv[])
 {
@@ -434,7 +411,7 @@ int main(int argc, char *argv[])
         }
 
         boost::asio::io_context io_context;
-        Server server(io_context, std::atoi(argv[1])); // Create a Server instance
+        Server server(io_context, std::atoi(argv[1]), "backupssvr"); // Pass the folder path "backupssvr" to Server
 
         io_context.run(); // Run the I/O context to start processing network events
     }
