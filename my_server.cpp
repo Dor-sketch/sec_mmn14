@@ -5,6 +5,7 @@
 #include <boost/asio.hpp>
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string/join.hpp>
+#include <iomanip>
 
 using boost::asio::ip::tcp;
 
@@ -25,20 +26,14 @@ public:
         : socket_(std::move(socket)), folder_path_(std::move(folder_path)) {}
 
     void start() {
+        std::cout << "Session started" << std::endl;
         do_read_header();
-        if (get_status() != Status::FAILURE) {
-            handle_request();
-        }
-        pack_response();
     }
 
 private:
     boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket_;
-    enum
-    {
-        header_length = 8
-    }; // without filename
-    char header_[header_length];
+    enum { HEADER_LENGTH = 8 }; // without filename
+    char header_[HEADER_LENGTH];
 
     // Op codes
     static const uint8_t OP_SAVE_FILE = 100;
@@ -77,57 +72,79 @@ private:
 
     Status get_status()
     {
+        std::cout << "Getting status_: " << static_cast<int>(status_) << std::endl;
         return status_;
     }
 
     void do_read_header() 
     {
+        std::cout << "inside do_read_header" << std::endl;
         auto self(shared_from_this());
-        boost::asio::async_read( //reading header from client
-            socket_,
-            boost::asio::buffer(header_, header_length),
-            [this, self](boost::system::error_code ec, std::size_t /*length*/)
-            {
-                if (!ec && parse_header()) { // if no error and header is  
-                    std::cout << "header processed" << std::endl;
-                    return 1;
-                } else {
-                    std::cerr << "Error reading header: " << ec.message() << std::endl;
-                    status_ = Status::FAILURE;
-                }
-            }
-        ); // end of async_read
+        // reading header from client
+        boost::asio::async_read(socket_,
+                                boost::asio::buffer(header_, HEADER_LENGTH),
+                                [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                                {
+                                    if (!ec && parse_fixed_header())
+                                    { // if no error and header is
+                                        std::cout << "header processed" << std::endl;
+                                        if (get_status() != Status::FAILURE)
+                                        {
+                                            std::cout << "Handling request" << std::endl;
+                                            handle_request();
+                                        }
+                                        std::cout << "Response sent" << std::endl;
+                                    }
+                                    else
+                                    {
+                                        std::cerr << "Error reading header: " << ec.message() << std::endl;
+                                        status_ = Status::FAILURE;
+                                        pack_response();
+                                    }
+                                }); // end of async_read
     }
 
-    void send_response(Status status)
+    void parse_filename()
     {
-        uint16_t status_code = static_cast<uint16_t>(status);
-        uint16_t name_len = filename_.length();
-        uint32_t payload_size = 0;
+        std::cout << "inside do_read_header" << std::endl;
+        auto self(shared_from_this());
+        // reading header from client
+        boost::asio::async_read(socket_,
+                                boost::asio::buffer(filename_, name_len_),
+                                [this, self](boost::system::error_code ec, std::size_t /*length*/)
+                                {
+                                    if (!ec) {
+                                        std::cout << "filename processed" << std::endl;
+                                        std::cout << "Filename: " << filename_ << std::endl;
+                                    }
+                                    else
+                                    {
+                                        std::cerr << "Error reading header: " << ec.message() << std::endl;
+                                        status_ = Status::FAILURE;
+                                    }
+                                }); // end of async_read
+    }
 
-        std::vector<boost::asio::const_buffer> response_buffers;
-        response_buffers.push_back(boost::asio::buffer(&version_, sizeof(version_)));
-        response_buffers.push_back(boost::asio::buffer(&status_code, sizeof(status_code)));
-        response_buffers.push_back(boost::asio::buffer(&name_len, sizeof(name_len)));
-        response_buffers.push_back(boost::asio::buffer(filename_.c_str(), name_len));
-
-        // process payload only if op was save or get file list and status is success
-        if (status == Status::SUCCESS_SAVE || status == Status::SUCCESS_FILE_LIST)
-        {
-            payload_size = file_contents_.length();
-            response_buffers.push_back(boost::asio::buffer(&payload_size, sizeof(payload_size)));
-            response_buffers.push_back(boost::asio::buffer(file_contents_.c_str(), payload_size));
-        }
+    void do_read_dynamicsize(int field_size, std::string *my_copy)
+    {
+        std::vector<char> my_buf(field_size);
 
         auto self(shared_from_this());
-        boost::asio::async_write(socket_, response_buffers,
-                                 [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                                 {
-                                     if (ec)
-                                     {
-                                         std::cerr << "Error sending response: " << ec.message() << std::endl;
-                                     }
-                                 });
+
+        boost::asio::async_read(socket_,
+                                boost::asio::buffer(my_buf),
+                                [this, self, my_buf = std::move(my_buf), my_copy](boost::system::error_code ec, std::size_t /*length*/)
+                                {
+                                    if (!ec)
+                                    {
+                                        *my_copy = std::string(my_buf.begin(), my_buf.end());
+                                    }
+                                    else
+                                    {
+                                        std::cerr << "Error reading data: " << ec.message() << std::endl;
+                                        status_ = Status::FAILURE;
+                                    }
+                                });
     }
 
     void do_read_payload()
@@ -142,51 +159,122 @@ private:
             {
                 if (!ec)
                 {
-                    handle_request();
+                    std::cout << "payload processed" << std::endl;
                 }
                 else
                 {
                     std::cerr << "Error reading payload: " << ec.message() << std::endl;
+                    status_ = Status::FAILURE;
                 }
             }
         );
     }
 
-    bool parse_header()
+    bool parse_fixed_header()
     {
+        std::cout << "inside parse_header" << std::endl;
         // Extract fields from header
         user_id_ = *reinterpret_cast<uint32_t *>(header_); // Assuming little endian
         version_ = header_[4];
         op_ = header_[5];
         name_len_ = *reinterpret_cast<uint16_t *>(header_ + 6); // little endian
 
-        // Copy filename from header and add null terminator
-        filename_.assign(header_ + header_length - name_len_, name_len_);
-        filename_.push_back('\0');
+        // if op is not get file list copy filename from header and add null terminator
+        if(op_ != OP_GET_FILE_LIST) {
+            boost::asio::async_read(socket_,
+                boost::asio::dynamic_buffer(name_buf_, name_len_),
+                [this](boost::system::error_code ec, std::size_t /*length*/)
+                {
+                    if (!ec)
+                    {
+                        filename_ = std::string(name_buf_.begin(), name_buf_.end());
+                        // Copy filename from header and add null terminator
+                        filename_.push_back('\0');
+                        std::cout << "Filename: " << filename_ << std::endl;
+                        std::cout << "Filename bytes:";
+                        for (size_t i = 0; i < name_len_; ++i)
+                        {
+                            std::cout << " " << std::hex << std::setw(2) << std::setfill('0')
+                                      << static_cast<int>(*(header_ + HEADER_LENGTH + i));
+                        }
+                        std::cout << std::endl;
+                    }
+                    else
+                    {
+                        std::cerr << "Error reading filename: " << ec.message() << std::endl;
+                        status_ = Status::FAILURE;
+                    }
+            }
+        );
+
+
 
         // Set backup directory
-        backup_dir_ = folder_path_ + "/" + std::to_string(user_id_);
-
+        backup_dir_ = folder_path_ + "/" + std::to_string
+        for (int i = 0; i < HEADER_LENGTH; ++i)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(header_[i]) << " ";
+        }
+        std::cout <<
+        std::cout << "User id: " << user_id_ << std::endl;
+        std::cout << "Version: " << static_cast<int>(version_) << std::endl;
+        std::cout << "Op code: " << static_cast<int>(op_) << std::endl;
+        std::cout << "Name length: " << name_len_ << std::endl;
+        std::cout << "Filename: " << filename_ << std::endl;
+        std::cout << "\n\n\nfile name from bytes to string: " << std::string(header_ + HEADER_LENGTH, name_len_) << std::endl;
+        std::cout << "Backup directory: " << backup_dir_ <<
         return true;
     }
 
-    bool parse_payload()
+    template <typename SocketType>
+    ssize_t recvall(SocketType &sock, void *buf, size_t size)
     {
-        enum{ payload_length = 4 }; // without file contents
-        char payload_[payload_length];
-        // Extract fields from payload
-        file_size_ = *reinterpret_cast<uint32_t *>(payload_); // Assuming little endian
+        char *byte_buf = reinterpret_cast<char *>(buf);
+        size_t bytes_received = 0;
 
-        // Copy file contents from payload
-        file_contents_.assign(payload_ + payload_length - file_size_, file_size_);
+        boost::system::error_code ec;
 
-        return true;
+        while (bytes_received < size)
+        {
+            size_t result = boost::asio::read(sock,
+                                              boost::asio::buffer(byte_buf + bytes_received, size - bytes_received), ec);
+
+            if (ec)
+            {
+                // Handle the error. In this case, return -1
+                return -1;
+            }
+
+            bytes_received += result;
+        }
+        return bytes_received;
     }
 
+    void parse_payload()
+    {
+        char payload_size_buf[4];
+        if (recvall(socket_, payload_size_buf, 4) != 4)
+        {
+            // Handle error
+        }
 
+        uint32_t payload_size = *reinterpret_cast<uint32_t *>(payload_size_buf);
+
+        char *file_data = new char[payload_size];
+        if (recvall(socket_, file_data, payload_size) != payload_size)
+        {
+            delete[] file_data;
+            // Handle error
+        }
+
+        file_contents_.assign(file_data, payload_size);
+
+        delete[] file_data;
+    }
 
     void pack_response()
     {
+        std::cout << "inside pack_response" << std::endl;
         uint8_t version = 1;
         uint16_t status = static_cast<uint16_t>(status_);
         uint16_t name_len = 0;
@@ -278,17 +366,22 @@ private:
 
     void handle_request()
     {
-        int status = 0;
+        std::cout << "inside handle_request" << std::endl;
+        std::cout << "Op code: " << static_cast<int>(op_) << std::endl;
 
         // Handle request based on op code
         switch (op_)
         {
         case OP_SAVE_FILE:
+            parse_filename();
+            do_read_payload();
             save_file();
         case OP_RESTORE_FILE:
+            parse_filename();
             restore_file();
             break;
         case OP_DELETE_FILE:
+            parse_filename();
             delete_file();
             break;
         case OP_GET_FILE_LIST:
@@ -301,11 +394,16 @@ private:
 
     void save_file()
     {
-        
+        std::cout << "Saving file" << std::endl;
+
+        std::cout << "Backup directory: " << backup_dir_ << std::endl;
         parse_payload();
+        std::cout << "File size: " << file_size_ << std::endl;
+        std::cout << "File contents: " << file_contents_ << std::endl;
         // Create backup directory if it doesn't exist
         if (!boost::filesystem::exists(backup_dir_))
         {
+            std::cout << "Creating backup directory" << std::endl;
             boost::filesystem::create_directory(backup_dir_);
         }
 
@@ -313,16 +411,23 @@ private:
         std::ofstream file(backup_dir_ + "/" + filename_, std::ios::binary);
         file.write(file_contents_.c_str(), file_size_);
         file.close();
+        pack_response();
+        std::cout << "Saving Response sent" << std::endl;
+
     }
 
     void restore_file()
     {
         // TODO: Implement restoring a file
+        pack_response();
+        std::cout << "Restorint Response sent" << std::endl;
     }
 
     void delete_file()
     {
         // TODO: Implement deleting a file
+        pack_response();
+        std::cout << "Deleting Response sent" << std::endl;
     }
 
 
@@ -362,6 +467,8 @@ private:
         //                                  std::cerr << "Error sending response: " << ec.message() << std::endl;
         //                              }
         //                          });
+        pack_response();
+        std::cout << "List Files Response sent" << std::endl;
     }
 
 };

@@ -10,12 +10,14 @@ SERVER_PORT = 1234  # Replace with the port number of the server
 user_id = 1234
 version = 1
 op = 100
-filename = b'test.txt'
-file_contents = b'Hello, world!'
+filename = b'aaaaaaaaaaa'
+file_contents = b'bb'
 
 # Compute lengths
 name_len = len(filename)
 payload_size = len(file_contents)
+print("playload size: ", payload_size)
+print("\n\n\n filename: ", filename)
 
 # Create format strings
 FIXED_FORMAT = 'IBBH'
