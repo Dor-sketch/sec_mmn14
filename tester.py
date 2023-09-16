@@ -10,7 +10,7 @@ SERVER_PORT = 1234  # Replace with the port number of the server
 user_id = 1234
 version = 1
 op = 100
-filename = b'aaaaaaaaaaa'
+filename = b'aaaaaaaa'
 file_contents = b'bb'
 
 # Compute lengths

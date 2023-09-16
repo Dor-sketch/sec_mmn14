@@ -19,6 +19,92 @@ void clear(char message[], int length)
 
 
 
+
+class Message
+{
+public:
+    static const int HEADER_LENGTH = 8;
+    static const uint8_t OP_SAVE_FILE = 100;
+    static const uint8_t OP_RESTORE_FILE = 200;
+    // ... other operation codes ...
+
+    enum class Status : uint16_t
+    {
+        SUCCESS_SAVE = 210,
+        SUCCESS_FILE_LIST = 211,
+        ERROR_FILE_NOT_FOUND = 1001,
+        ERROR_NO_FILES = 1002, // Error status when client has no files on server
+        FAILURE = 1003,        // general error status
+        PROCESSING = 1         // default status, still processing request - for inner use
+    };
+
+private:
+    char header_[HEADER_LENGTH];
+    uint32_t user_id_;
+    uint8_t version_;
+    uint8_t op_;
+    uint16_t name_len_;
+    std::string filename_;
+    uint32_t file_size_;
+    std::string file_contents_;
+
+public:
+    Message();
+    bool parse_fixed_header(const char *data);
+    void pack_response(Status status, std::vector<char> &responseBuffer);
+
+    // ... other utility methods ...
+};
+
+
+
+
+
+class FileHandler
+{
+private:
+    std::string folder_path_;
+    std::vector<std::string> file_list_;
+
+public:
+    FileHandler(const std::string &folder_path);
+    Status save_file(const std::string &filename, const std::string &content);
+    std::string restore_file(const std::string &filename);
+    // ... other file methods ...
+};
+
+class Session : public std::enable_shared_from_this<Session>
+{
+private:
+    boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket_;
+    Message message_;
+    FileHandler file_handler_;
+
+    void do_read_header();
+    void do_read_dynamicsize(int field_size, std::string *my_copy);
+    void do_read_payload();
+    void handle_request();
+
+public:
+    Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path)
+        : socket_(std::move(socket)), file_handler_(folder_path) {}
+
+    void start()
+    {
+        std::cout << "Session started" << std::endl;
+        do_read_header();
+    }
+};
+
+
+
+
+
+
+
+
+
+
 class Session : public std::enable_shared_from_this<Session> {
 public:
     // server folder path added to constructor
@@ -77,66 +163,24 @@ private:
     }
 
     void do_read_header() 
-    {
-        std::cout << "inside do_read_header" << std::endl;
-        auto self(shared_from_this());
-        // reading header from client
-        boost::asio::async_read(socket_,
-                                boost::asio::buffer(header_, HEADER_LENGTH),
-                                [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                                {
-                                    if (!ec && parse_fixed_header())
-                                    { // if no error and header is
-                                        std::cout << "header processed" << std::endl;
-                                        if (get_status() != Status::FAILURE)
-                                        {
-                                            std::cout << "Handling request" << std::endl;
-                                            handle_request();
-                                        }
-                                        std::cout << "Response sent" << std::endl;
-                                    }
-                                    else
-                                    {
-                                        std::cerr << "Error reading header: " << ec.message() << std::endl;
-                                        status_ = Status::FAILURE;
-                                        pack_response();
-                                    }
-                                }); // end of async_read
-    }
-
-    void parse_filename()
-    {
-        std::cout << "inside do_read_header" << std::endl;
-        auto self(shared_from_this());
-        // reading header from client
-        boost::asio::async_read(socket_,
-                                boost::asio::buffer(filename_, name_len_),
-                                [this, self](boost::system::error_code ec, std::size_t /*length*/)
-                                {
-                                    if (!ec) {
-                                        std::cout << "filename processed" << std::endl;
-                                        std::cout << "Filename: " << filename_ << std::endl;
-                                    }
-                                    else
-                                    {
-                                        std::cerr << "Error reading header: " << ec.message() << std::endl;
-                                        status_ = Status::FAILURE;
-                                    }
-                                }); // end of async_read
-    }
+    
 
     void do_read_dynamicsize(int field_size, std::string *my_copy)
     {
+        std::cout << "inside do_read_dynamicsize" << std::endl;
         std::vector<char> my_buf(field_size);
-
+        std::cout << "field_size: " << field_size << std::endl;
         auto self(shared_from_this());
-
+        std::cout << "my_buf: " << my_buf.data() << std::endl;
         boost::asio::async_read(socket_,
                                 boost::asio::buffer(my_buf),
                                 [this, self, my_buf = std::move(my_buf), my_copy](boost::system::error_code ec, std::size_t /*length*/)
                                 {
+                                    std::cout << "inside lambda" << std::endl;
                                     if (!ec)
                                     {
+                                        std ::cout << "dynamicsize processed" << std::endl;
+                                        std ::cout << "my_buf: " << my_buf.data() << std::endl;
                                         *my_copy = std::string(my_buf.begin(), my_buf.end());
                                     }
                                     else
@@ -181,95 +225,24 @@ private:
 
         // if op is not get file list copy filename from header and add null terminator
         if(op_ != OP_GET_FILE_LIST) {
-            boost::asio::async_read(socket_,
-                boost::asio::dynamic_buffer(name_buf_, name_len_),
-                [this](boost::system::error_code ec, std::size_t /*length*/)
-                {
-                    if (!ec)
-                    {
-                        filename_ = std::string(name_buf_.begin(), name_buf_.end());
-                        // Copy filename from header and add null terminator
-                        filename_.push_back('\0');
-                        std::cout << "Filename: " << filename_ << std::endl;
-                        std::cout << "Filename bytes:";
-                        for (size_t i = 0; i < name_len_; ++i)
-                        {
-                            std::cout << " " << std::hex << std::setw(2) << std::setfill('0')
-                                      << static_cast<int>(*(header_ + HEADER_LENGTH + i));
-                        }
-                        std::cout << std::endl;
-                    }
-                    else
-                    {
-                        std::cerr << "Error reading filename: " << ec.message() << std::endl;
-                        status_ = Status::FAILURE;
-                    }
-            }
-        );
-
-
+            do_read_dynamicsize(name_len_, &filename_);
+            filename_.push_back('\0');
+            std::cout << "Filename: " << filename_ << std::endl;
+        }
 
         // Set backup directory
-        backup_dir_ = folder_path_ + "/" + std::to_string
+        backup_dir_ = folder_path_ + "/" + std::to_string(user_id_);
         for (int i = 0; i < HEADER_LENGTH; ++i)
         {
             std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(header_[i]) << " ";
         }
-        std::cout <<
         std::cout << "User id: " << user_id_ << std::endl;
         std::cout << "Version: " << static_cast<int>(version_) << std::endl;
         std::cout << "Op code: " << static_cast<int>(op_) << std::endl;
         std::cout << "Name length: " << name_len_ << std::endl;
         std::cout << "Filename: " << filename_ << std::endl;
-        std::cout << "\n\n\nfile name from bytes to string: " << std::string(header_ + HEADER_LENGTH, name_len_) << std::endl;
-        std::cout << "Backup directory: " << backup_dir_ <<
+        std::cout << "Backup directory: " << backup_dir_ << std::endl;
         return true;
-    }
-
-    template <typename SocketType>
-    ssize_t recvall(SocketType &sock, void *buf, size_t size)
-    {
-        char *byte_buf = reinterpret_cast<char *>(buf);
-        size_t bytes_received = 0;
-
-        boost::system::error_code ec;
-
-        while (bytes_received < size)
-        {
-            size_t result = boost::asio::read(sock,
-                                              boost::asio::buffer(byte_buf + bytes_received, size - bytes_received), ec);
-
-            if (ec)
-            {
-                // Handle the error. In this case, return -1
-                return -1;
-            }
-
-            bytes_received += result;
-        }
-        return bytes_received;
-    }
-
-    void parse_payload()
-    {
-        char payload_size_buf[4];
-        if (recvall(socket_, payload_size_buf, 4) != 4)
-        {
-            // Handle error
-        }
-
-        uint32_t payload_size = *reinterpret_cast<uint32_t *>(payload_size_buf);
-
-        char *file_data = new char[payload_size];
-        if (recvall(socket_, file_data, payload_size) != payload_size)
-        {
-            delete[] file_data;
-            // Handle error
-        }
-
-        file_contents_.assign(file_data, payload_size);
-
-        delete[] file_data;
     }
 
     void pack_response()
@@ -430,8 +403,6 @@ private:
         std::cout << "Deleting Response sent" << std::endl;
     }
 
-
-
     void get_file_list()
     {
         // use private member variable backup_dir_ to get file list
@@ -453,25 +424,47 @@ private:
 
         // Convert file list to string
         std::string file_list_str = boost::algorithm::join(file_list_, "\n");
-
-        // // Send file list to client
-        // std::ostringstream response_stream;
-        // response_stream << "File list for user " << user_id_ << ":\n"
-        //                 << file_list_str << "\n";
-        // std::string response = response_stream.str();
-        // boost::asio::async_write(socket_, boost::asio::buffer(response.c_str(), response.length()),
-        //                          [this](boost::system::error_code ec, std::size_t /*length*/)
-        //                          {
-        //                              if (ec)
-        //                              {
-        //                                  std::cerr << "Error sending response: " << ec.message() << std::endl;
-        //                              }
-        //                          });
         pack_response();
         std::cout << "List Files Response sent" << std::endl;
     }
 
 };
+
+
+class ServerFileUtils {
+public:
+    file_ops() = default;
+    ~file_ops() = default;
+
+    void save_file() {
+        std::cout << "Saving file" << std::endl;
+
+        std::cout << "Backup directory: " << backup_dir_ << std::endl;
+        parse_payload();
+        std::cout << "File size: " << file_size_ << std::endl;
+        std::cout << "File contents: " << file_contents_ << std::endl;
+        // Create backup directory if it doesn't exist
+        if (!boost::filesystem::exists(backup_dir_))
+        {
+            std::cout << "Creating backup directory" << std::endl;
+            boost::filesystem::create_directory(backup_dir_);
+        }
+
+        // Save file to backup directory
+        std::ofstream file(backup_dir_ + "/" + filename_, std::ios::binary);
+        file.write(file_contents_.c_str(), file_size_);
+        file.close();
+        pack_response();
+        std::cout << "Saving Response sent" << std::endl;
+    }
+
+    void restore_file()
+    {
+
+}
+
+
+class ServeNetworkUtils {
 
 class Server
 {
