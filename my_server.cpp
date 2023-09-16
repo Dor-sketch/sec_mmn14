@@ -14,41 +14,96 @@ void clear(char message[], int length)
         message[i] = '\0';
 }
 
-void session(tcp::socket sock)
+class Session : public std::enable_shared_from_this<Session>
 {
-    try
+public:
+    Session(tcp::socket socket) : socket_(std::move(socket)) {}
+
+    void start()
     {
-        for (;;)
-        {
-            char data[max_length];
-            size_t reply_length =
-                boost::asio::read(sock, boost::asio::buffer(data,max_length));
-            std::cout << "Received message: " << data << std::endl;
-            clear(data, max_length);
-            std::cout << "Enter message: ";
-            std::cin.getline(data, max_length);
-            boost::asio::write(sock,boost::asio::buffer(data,max_length));
-        }
+        
+        do_read();
     }
-    catch (std::exception &e)
+
+private:
+    void do_read()
     {
-        std::cerr << "Exception in thread: " << e.what() << "\n";
+        auto self(shared_from_this());
+        socket_.async_read_some(boost::asio::buffer(data_, max_length),
+            [this, self](boost::system::error_code ec, std::size_t length)
+            {
+                if (!ec)
+                {
+                    std::cout << "Received message: " << data_ << std::endl;
+                    clear(data_, max_length);
+                    std::cout << "Enter message: ";
+                    std::cin.getline(data_, max_length);
+                    do_write(length);
+                }
+            });
     }
-}
+
+    void do_write(std::size_t length)
+    {
+        auto self(shared_from_this());
+        boost::asio::async_write(socket_, boost::asio::buffer(data_, length),
+            [this, self](boost::system::error_code ec, std::size_t /*length*/)
+            {
+                if (!ec)
+                {
+                    do_read();
+                }
+            });
+    }
+
+    tcp::socket socket_;
+    enum
+    {
+        max_length = 1024
+    };
+    char data_[max_length];
+
+};
 
 
-void server(boost::asio::io_context &io_context, unsigned short port)
+
+
+
+
+
+
+
+
+
+
+
+
+class Server
 {
-    tcp::acceptor a(io_context, tcp::endpoint(tcp::v4(), port));
-    for (;;)
+public:
+    Server(boost::asio::io_context &io_context, unsigned short port)
+        : acceptor_(io_context, tcp::endpoint(tcp::v4(), port))
     {
-        session(a.accept());
+        accept(); // Start accepting clients
     }
-}
 
+private:
+    void accept()
+    {
+        acceptor_.async_accept([this](boost::system::error_code ec, tcp::socket socket)
+            {
+                if (!ec)
+                {
+                    std::make_shared<Session>(std::move(socket))->start();
+                }
+                accept(); // Continue accepting
+            });
+    }
 
+    tcp::acceptor acceptor_;
+};
 
-int main(int argc, char* argv[])
+int main(int argc, char *argv[])
 {
     try
     {
@@ -57,60 +112,14 @@ int main(int argc, char* argv[])
             std::cerr << "Usage: blocking_tcp_echo_server <port>\n";
             return 1;
         }
-    
 
-    boost::asio::io_context io_context;
+        boost::asio::io_context io_context;
+        Server server(io_context, std::atoi(argv[1])); // Create a Server instance
 
-    server(io_context, std::atoi(argv[1]));
+        io_context.run(); // Run the I/O context to start processing network events
     }
     catch (std::exception &e)
     {
         std::cerr << "Exception: " << e.what() << "\n";
     }
-}
-
-#include <boost/asio.hpp>
-#include <thread>
-#include <iostream>
-
-using boost::asio::ip::tcp;
-
-class Server {
-public:
-    Server(boost::asio::io_context& io_context, short port)
-        : acceptor_(io_context, tcp::endpoint(tcp::v4(), port)) {
-        accept();
-    }
-
-private:
-    void accept() {
-        acceptor_.async_accept([this](boost::system::error_code ec, tcp::socket socket) {
-            if (!ec) {
-                std::make_shared<Session>(std::move(socket))->start();
-            }
-            accept();
-        });
-    }
-
-    tcp::acceptor acceptor_;
-};
-
-class Session : public std::enable_shared_from_this<Session> {
-public:
-    Session(tcp::socket socket) : socket_(std::move(socket)) {}
-
-    void start() {
-        // Read data from the client
-        // TODO: Implement reading the request header and payload
-    }
-
-private:
-    tcp::socket socket_;
-};
-
-int main() {
-    boost::asio::io_context io_context;
-    Server server(io_context, 8080);
-    io_context.run();
-    return 0;
 }
