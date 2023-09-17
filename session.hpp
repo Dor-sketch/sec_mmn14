@@ -24,6 +24,7 @@ private:
     void do_read_payload();
     void handle_request();
     void do_read_filename ();
+    void do_read_fileSize();
 
 public :
         // Constructor

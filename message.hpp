@@ -22,10 +22,12 @@ public:
     static const uint8_t OP_GET_FILE_LIST = 202;
 
     enum { HEADER_LENGTH = 8 }; // without filename
+    enum { FILE_SIZE_BUFFER_LENGTH = 4 };
 
 private:
     // class variables
-    char header_buffer_[HEADER_LENGTH];
+    char header_buffer_[HEADER_LENGTH]; // without filename
+    char file_size_buffer_[FILE_SIZE_BUFFER_LENGTH];
     uint8_t version_;
     uint8_t op_;
     uint16_t name_len_;
@@ -45,21 +47,23 @@ public:
     uint32_t get_file_size() const;
     const std::string &get_file_content() const;
     std::string get_header_buffer() const;
+    std::string get_file_size_buffer() const;
     const std::string &get_filename() const;
     const std::vector<std::string> &get_file_list() const;
-     std::vector<char> &get_buffer() ;
+    std::vector<char> &get_buffer() ;
+    char *get_file_size_buffer();
 
-    // setters
-    void set_file_content(const std::string &content);
+        // setters
+    void set_file_content();
     void set_filename();
     void set_header_buffer(const char *buffer);
     void set_file_list(const std::vector<std::string> &file_list);
+    void set_file_size();
 
     // ... other utility methods ...
     bool parse_fixed_header();
     void pack_response(Status status, std::vector<char> &responseBuffer);
     void do_read_dynamicsize(uint16_t size, std::string *dest);
-    void do_read_payload(uint32_t size, std::string *dest);
     void startReadFilename();
 
     // ... other utility methods ...

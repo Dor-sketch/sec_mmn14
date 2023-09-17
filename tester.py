@@ -31,7 +31,7 @@ name_data = struct.pack(NAME_FORMAT, filename)
 payload_data = struct.pack(PAYLOAD_FORMAT, file_contents)
 
 # Concatenate
-message = fixed_data + name_data + struct.pack('I', payload_size) + payload_data
+message = fixed_data + name_data + struct.pack('<I', payload_size) + payload_data
 
 print("message: ", message)
 print(message.hex())

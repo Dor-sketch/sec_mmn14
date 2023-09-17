@@ -42,74 +42,6 @@ Message::Message(std::vector<char> &requestBuffer,
 {
 }
 
-void Message::startReadFilename()
-    {
-    //     std::cout << "inside startReadFilename" << std::endl;
-    //     try
-    //     {
-    //         if (socket_.is_open())
-    //         {
-    //             std::cout << "inside startReadFilename socket is open" << std::endl;
-    //             socket_.async_read_some(
-    //                 boost::asio::buffer(buffer_, get_file_size()),
-    //                 [this](boost::system::error_code ec, std::size_t bytes_transferred)
-    //                 {
-    //                     if (!ec)
-    //                     {
-    //                         set_filename(std::string(buffer_.begin(), buffer_.begin() + bytes_transferred));
-    //                     }
-    //                     else
-    //                     {
-
-    //                     }
-    //                 });
-    //          }
-    //     }
-    // catch (std::exception &e)
-    // {
-    //     std::cerr << "Exception: " << e.what() << "\n";
-    // }
-}
-
-// void Message::startReadFilename()
-// {
-//     auto temp_buffer = std::make_shared<std::vector<char>>(get_name_length());
-
-//     std::cout << "inside startReadFilename" << std::endl;
-
-//     socket_.async_read_some(boost::asio::buffer(temp_buffer->data(), temp_buffer->size()),
-//                             [this, temp_buffer](boost::system::error_code ec, std::size_t bytes_transferred)
-//                             {
-//                                 if (!ec)
-//                                 {
-//                                     filename_ = std::string(temp_buffer->begin(), temp_buffer->begin() + bytes_transferred);
-//                                     // Rest of your code...
-//                                 }
-//                                 // The else block is unchanged. Since temp_buffer is a shared pointer,
-//                                 // it will be destroyed automatically when it goes out of scope.
-//                             });
-// }
-
-// void Message::do_read_dynamicsize(uint16_t size, std::string *out_string)
-// {
-//     std::cout << "inside do_read_dynamicsize" << std::endl;
-//     std::cout << "size: " << size << std::endl;
-//     std::vector<char> buffer(get_name_length());
-//     std::cout << "after alloc" << std::endl;
-//     socket_.async_read_some(boost::asio::buffer(buffer, size),
-//                             [this, buffer, out_string, size](boost::system::error_code ec, std::size_t length)
-//                             {
-//                                 std::cout << "inside do_read_dynamicsize async_read_some" << std::endl;
-//                                 if (!ec)
-//                                 {
-//                                     std::cout << "inside do_read_dynamicsize async_read_some" << std::endl;
-//                                     *out_string = std::string(buffer, length);
-//                                 }
-//                                 else
-//                                 {
-//                                 }
-//                             });
-// }
 
 
 bool Message::parse_fixed_header()
@@ -257,9 +189,19 @@ const std::string &Message::get_file_content() const {
 
 
 // setters
-void Message::set_file_content(const std::string &content) {
-    file_contents_ = content;
-    file_size_ = file_contents_.size();
+void Message::set_file_content() {
+    if (op_ != OP_SAVE_FILE)
+    {
+        std::cerr << "Error: invalid op for file content" << std::endl;
+        return;
+    }
+    else if (buffer_.empty())
+    {
+        std::cerr << "Error: Cannot set filename. Buffer is empty." << std::endl;
+    }
+
+    file_contents_ = std::string(buffer_.data(), name_len_);
+    std::cout << "filename_content set: " << file_contents_ << std::endl;
 }
 
 
@@ -293,8 +235,24 @@ void Message::set_filename() {
     
     filename_ = std::string(buffer_.data(), name_len_);
     std::cout << "filename_ was set: " << filename_ << std::endl;
+    buffer_.clear();
 }
 
  std::vector<char> &Message::get_buffer() {
     return buffer_;
 }
+
+char *Message::get_file_size_buffer(){
+    return file_size_buffer_;
+}
+
+
+void Message::set_file_size() {
+    //convert the buffer from little endian bytes to integer
+    file_size_ = le32toh(*reinterpret_cast<uint32_t *>(&file_size_buffer_[0]));
+    printf("file_size_ was set: %d\n", file_size_);
+}
+
+// std::string Message::get_file_size_buffer() const {
+//     return std::string(file_size_buffer_, FIELD_FILE_SIZE_LENGTH);
+// }
