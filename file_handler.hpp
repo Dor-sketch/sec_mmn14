@@ -13,7 +13,9 @@ private:
 
 public:
     FileHandler(const std::string &folder_path);
-    Status save_file(const std::string &filename, const std::string &content);
+    Status save_file(uint32_t user_id, 
+                     const std::string &filename,
+                     const std::string &content);
     std::string restore_file(const std::string &filename);
     Status delete_file(const std::string &filename);
     std::vector<std::string> get_file_list();

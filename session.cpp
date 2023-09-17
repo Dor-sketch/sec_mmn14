@@ -119,10 +119,10 @@ void Session::handle_request()
     switch (message_.get_op_code())
     {
     case Message::OP_SAVE_FILE:{
-        file_handler_.save_file(message_.get_filename(), message_.get_file_content());
+        file_handler_.save_file(message_.get_user_id(),
+                                message_.get_filename(), 
+                                message_.get_file_content());
 
-        // Once file name is read, you can further continue reading the file payload.
-        do_read_payload();
         break;
     }
     case Message::OP_RESTORE_FILE:

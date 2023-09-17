@@ -247,6 +247,10 @@ char *Message::get_file_size_buffer(){
     return file_size_buffer_;
 }
 
+uint32_t Message::get_user_id() const
+{
+    return user_id_;
+}
 
 void Message::set_file_size() {
     //convert the buffer from little endian bytes to integer

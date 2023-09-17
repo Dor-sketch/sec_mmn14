@@ -45,6 +45,7 @@ public:
     uint8_t get_op_code() const;
     uint16_t get_name_length() const;
     uint32_t get_file_size() const;
+    uint32_t get_user_id() const;
     const std::string &get_file_content() const;
     std::string get_header_buffer() const;
     std::string get_file_size_buffer() const;
@@ -53,7 +54,7 @@ public:
     std::vector<char> &get_buffer() ;
     char *get_file_size_buffer();
 
-        // setters
+    // setters
     void set_file_content();
     void set_filename();
     void set_header_buffer(const char *buffer);

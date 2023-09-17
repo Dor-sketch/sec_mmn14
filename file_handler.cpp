@@ -4,46 +4,57 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/sort_subrange.hpp>
 #include <dirent.h> // For opendir, readdir, etc.
-
-namespace fs = boost::filesystem;
+#include <algorithm> // For std::sort
+#include <string>
 
 FileHandler::FileHandler(const std::string &folder_path) 
 : folder_path_(folder_path),
   file_list_{} // Initialize file_list_ with size 0
 {
     //check if the folder "backupsvr" exists and if not, create it
-    if (!fs::exists(folder_path_))
+    if (!boost::filesystem::exists(folder_path_))
     {
-        fs::create_directory(folder_path_);
+        boost::filesystem::create_directory(folder_path_);
     }
     file_list_ = get_file_list();
 }
 
-
-Status FileHandler::save_file(const std::string &filename, const std::string &content)
+Status FileHandler::save_file(uint32_t user_id, const std::string &filename, const std::string &content)
 {
-    std::string full_path = folder_path_ + "/" + filename;
-    std::ofstream ofs(full_path, std::ios::binary);
+    std::string user_id_str = std::to_string(user_id);
+    std::string dir_path = folder_path_ + "/" + user_id_str;
+    std::string full_path = dir_path + "/" + filename;
+
+    // Check and create directory if it doesn't exist
+    if (!boost::filesystem::exists(dir_path))
+    {
+        if (!boost::filesystem::create_directories(dir_path))
+        {
+            std::cerr << "Failed to create directory: " << dir_path << '\n';
+            return Status::FAILURE;
+        }
+    }
+
+    std::ofstream ofs(full_path, std::ios::binary); // Consider if you really need binary mode here
 
     if (!ofs)
     {
-        // Error opening file for writing
+        std::cerr << "Failed to open file: " << full_path << '\n';
         return Status::FAILURE;
     }
 
-    ofs.write(content.c_str(), content.size());
+    ofs << content; // use stream insertion for strings, more idiomatic
 
     if (!ofs.good())
     {
-        // Error during writing
+        ofs.close();
+        std::cerr << "Failed to write to file: " << full_path << '\n';
         return Status::FAILURE;
     }
 
+    ofs.close();
     return Status::SUCCESS_SAVE;
 }
-
-
-
 
 std::string FileHandler::restore_file(const std::string &filename)
 {
