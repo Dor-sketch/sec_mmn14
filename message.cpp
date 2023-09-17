@@ -10,23 +10,40 @@
 #include <boost/algorithm/string.hpp>
 #include <string>
 
-
 Message::Message()
-    : io_context_(),
+    : header_buffer_{},
+      version_{0},
+      op_{0},
+      name_len_{0},
+      user_id_{0},
+      file_size_{0},
+      file_contents_{""},
+      file_list_{},
+      buffer_{},
+      filename_{""},
+      io_context_(),
       socket_(io_context_)
 {
 }
 
-Message::Message(std::vector<char> &requestBuffer, boost::asio::ip::tcp::socket &socket)
-    : socket_(std::move(socket)),
+Message::Message(std::vector<char> &requestBuffer,
+                boost::asio::ip::tcp::socket &socket)
+    : header_buffer_{},
+      version_{0},
+      op_{0},
+      name_len_{0},
+      user_id_{0},
+      file_size_{0},
+      file_contents_{""},
+      file_list_{},
       buffer_(std::move(requestBuffer)),
-      header_buffer_{8} // Initialize header_buffer_ with size 8
+      filename_{""},
+      socket_(std::move(socket))
 {
 }
 
 void Message::startReadFilename()
     {
-        char *buffer = new char[get_file_size()];
         std::cout << "inside startReadFilename" << std::endl;
         try
         {
@@ -34,18 +51,16 @@ void Message::startReadFilename()
             {
                 std::cout << "inside startReadFilename socket is open" << std::endl;
                 socket_.async_read_some(
-                    boost::asio::buffer(buffer, get_file_size()),
-                    [this, buffer](boost::system::error_code ec, std::size_t bytes_transferred)
+                    boost::asio::buffer(buffer_, get_file_size()),
+                    [this](boost::system::error_code ec, std::size_t bytes_transferred)
                     {
                         if (!ec)
                         {
-                            filename_.assign(buffer, bytes_transferred);
-                            delete[] buffer;
+                            set_filename(std::string(buffer_.begin(), buffer_.begin() + bytes_transferred));
                         }
                         else
                         {
-                            // Handle the error.
-                            delete[] buffer;
+
                         }
                     });
              }
@@ -135,6 +150,7 @@ bool Message::parse_fixed_header()
         std::cout << "inside op_ != OP_GET_FILE_LIST" << std::endl;
         startReadFilename();
         filename_.push_back('\0');
+        std::cout << "filename_: " << filename_ << std::endl;
     }
 
 
@@ -155,8 +171,7 @@ void Message::pack_response(Status status, std::vector<char> &responseBuffer)
     uint32_t payload_size = 0;
     std::string payload;
 
-    switch (op_)
-    {
+    switch (op_) {
     case OP_SAVE_FILE:
         if (status == Status::SUCCESS_SAVE)
         {
@@ -203,82 +218,77 @@ void Message::pack_response(Status status, std::vector<char> &responseBuffer)
             payload = "Error: Invalid operation.";
             payload_size = payload.size();
             break;
-        }
-
-        // Packing the header. (This is just a simple example, adapt as needed.)
-        responseBuffer.push_back(version);
-        responseBuffer.push_back(static_cast<char>(status_code));
-        responseBuffer.push_back(name_len & 0xFF);            // lower byte
-        responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte
-        responseBuffer.push_back(payload_size & 0xFF);        // lower byte
-        responseBuffer.push_back((payload_size >> 8) & 0xFF); // upper byte
-        // ... pack other header fields as required
-
-        // Packing the payload
-        responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
     }
+    // Packing the header. (This is just a simple example, adapt as needed.)
+    responseBuffer.push_back(version);
+    responseBuffer.push_back(static_cast<char>(status_code));
+    responseBuffer.push_back(name_len & 0xFF);            // lower byte
+    responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte
+    responseBuffer.push_back(payload_size & 0xFF);        // lower byte
+    responseBuffer.push_back((payload_size >> 8) & 0xFF); // upper byte
+    // ... pack other header fields as requi
+    // Packing the payload
+    responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
+}
 
-    const uint8_t Message::get_op_code() const
+// getters - small type
+uint8_t Message::get_op_code() const {
+   return op_;
+}
+
+uint16_t Message::get_name_length() const {
+    return name_len_;
+}
+
+uint32_t Message::get_file_size() const {
+    return file_size_;
+}
+
+// getters - large type
+const std::string &Message::get_filename() const {
+    return filename_;
+}
+
+std::string Message::get_header_buffer() const
+{
+    return std::string(header_buffer_, HEADER_LENGTH);
+}
+
+const std::vector<std::string> &Message::get_file_list() const {
+    return file_list_;
+}
+
+const std::string &Message::get_file_content() const {
+    return file_contents_;
+}
+
+
+// setters
+void Message::set_file_content(const std::string &content) {
+    file_contents_ = content;
+    file_size_ = file_contents_.size();
+}
+
+
+void Message::set_file_list(const std::vector<std::string> &file_list) {
+    file_list_ = file_list;
+}
+
+void Message::set_header_buffer(const char *buffer) {
+    std::cout << "inside set_header_buffer" << std::endl;
+    std::cout << "buffer: " << buffer << std::endl;
+    for (int i = 0; i < 8; i++)
     {
-        return op_;
+        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
     }
+    std::copy(buffer, buffer + 8, header_buffer_);
+    std::cout << "after copy" << std::endl;
+    std::cout << "header_buffer_ " << header_buffer_ << std::endl;
+    header_buffer_[HEADER_LENGTH] = {0}; // Initialize all elements to zero
+}
 
-    const uint16_t Message::get_name_length() const
-    {
-        return name_len_;
-    }
+void Message::set_filename(const std::string &filename) {
+    filename_ = filename;
+    name_len_ = filename_.length();
+}
 
-    const std::string &Message::get_filename() const
-    {
-        return filename_;
-    }
-
-    const std::string &Message::get_header_buffer() const
-    {
-        static const std::string header(header_buffer_, HEADER_LENGTH);
-        return header;
-    }
-
-    const uint32_t Message::get_file_size() const
-    {
-        return file_size_;
-    }
-
-    void Message::set_file_content(const std::string &content)
-    {
-        file_contents_ = content;
-        file_size_ = file_contents_.size();
-    }
-
-    const std::string &Message::get_file_content() const
-    {
-        return file_contents_;
-    }
-
-    void Message::set_file_list(const std::vector<std::string> &file_list)
-    {
-        file_list_ = file_list;
-    }
-
-    void Message::set_header_buffer(const char *buffer)
-    {
-        std::cout << "inside set_header_buffer" << std::endl;
-        std::cout << "buffer: " << buffer << std::endl;
-        for (int i = 0; i < 8; i++)
-        {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
-        }
-        std::copy(buffer, buffer + 8, header_buffer_);
-        std::cout << "after copy" << std::endl;
-        std::cout << "header_buffer_ " << header_buffer_ << std::endl;
-        header_buffer_[HEADER_LENGTH] = {0}; // Initialize all elements to zero
-    }
-
-    void Message::set_filename(const std::string &filename)
-    {
-        filename_ = filename;
-        name_len_ = filename_.length();
-    }
-
-
-// ... other method implementations ...

@@ -25,7 +25,9 @@ private:
 
 public:
     // Constructor
-    Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path);
+    Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket,
+            const std::string &folder_path,
+            std::vector<char> &requestBuffer);
 
 
     // Public member function

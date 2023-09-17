@@ -22,7 +22,10 @@ private:
                                    if (!ec)
                                    {
                                        // Assuming Session class has a constructor that takes a tcp::socket
-                                       std::make_shared<Session>(std::move(socket_), folder_path_)->start();
+                                       std::make_shared<Session>(
+                                        std::move(socket_),
+                                        folder_path_,
+                                        inputBuffer)->start();
                                    }
                                    do_accept();
                                });

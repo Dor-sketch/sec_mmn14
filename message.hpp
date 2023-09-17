@@ -12,7 +12,8 @@ class Message : public std::enable_shared_from_this<Message>
 {
 public:
     Message();
-    Message(std::vector<char> &requestBuffer, boost::asio::ip::tcp::socket &socket);
+    Message(std::vector<char> & requestBuffer,
+            boost::asio::ip::tcp::socket &socket);
 
     // Op codes
     static const uint8_t OP_SAVE_FILE = 100;
@@ -20,32 +21,30 @@ public:
     static const uint8_t OP_DELETE_FILE = 201;
     static const uint8_t OP_GET_FILE_LIST = 202;
 
-    enum
-    {
-        HEADER_LENGTH = 8
-    }; // without filename
+    enum { HEADER_LENGTH = 8 }; // without filename
 
 private:
+    // class variables
     char header_buffer_[HEADER_LENGTH];
-    uint32_t user_id_;
     uint8_t version_;
     uint8_t op_;
     uint16_t name_len_;
-    std::string filename_;
+    uint32_t user_id_;
     uint32_t file_size_;
     std::string file_contents_;
     std::vector<std::string> file_list_;
+    std::vector<char> buffer_;
+    std::string filename_;
     boost::asio::io_context io_context_; 
     boost::asio::ip::tcp::socket socket_;
-    std::vector<char> buffer_;
 
 public:
     // getters
-    const uint8_t get_op_code() const;
-    const uint16_t get_name_length() const;
-    const uint32_t get_file_size() const;
+    uint8_t get_op_code() const;
+    uint16_t get_name_length() const;
+    uint32_t get_file_size() const;
     const std::string &get_file_content() const;
-    const std::string &get_header_buffer() const;
+    std::string get_header_buffer() const;
     const std::string &get_filename() const;
     const std::vector<std::string> &get_file_list() const;
 

@@ -7,13 +7,16 @@
 
 namespace fs = boost::filesystem;
 
-FileHandler::FileHandler(const std::string &folder_path) : folder_path_(folder_path)
+FileHandler::FileHandler(const std::string &folder_path) 
+: folder_path_(folder_path),
+  file_list_{} // Initialize file_list_ with size 0
 {
     //check if the folder "backupsvr" exists and if not, create it
     if (!fs::exists(folder_path_))
     {
         fs::create_directory(folder_path_);
     }
+    file_list_ = get_file_list();
 }
 
 

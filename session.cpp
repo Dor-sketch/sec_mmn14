@@ -1,10 +1,11 @@
 #include "session.hpp"
 
-Session::Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path)
-    : socket_(std::move(socket)), file_handler_(folder_path)
-{
-    // Constructor implementation...
-}
+Session::Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path, std::vector<char> &requestBuffer)
+: socket_(std::move(socket)),
+  file_handler_(folder_path),
+  message_(requestBuffer, socket),
+  header_buffer{0} // Initialize header_buffer_ with size 8
+{}
 
 void Session::start()
 {
