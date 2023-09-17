@@ -7,9 +7,9 @@ SERVER_PORT = 1234  # Replace with the port number of the server
 
 
 # Define the test data
-user_id = 1212
+user_id = 1234
 version = 1
-op = 0x02
+op = 100
 filename = b'dor.txt'
 file_contents = b'b'
 
@@ -20,10 +20,11 @@ print("playload size: ", payload_size)
 print("\n\n\n filename: ", filename)
 
 # Create format strings
-FIXED_FORMAT = 'IBBH'
+FIXED_FORMAT = '<I B B H' # < for little endian, I for unsigned int, B for unsigned char, H for unsigned short
 NAME_FORMAT = '{}s'.format(name_len)
 PAYLOAD_FORMAT = '{}s'.format(payload_size)
 
+print(user_id, version, op, name_len)
 # Pack data
 fixed_data = struct.pack(FIXED_FORMAT, user_id, version, op, name_len)
 name_data = struct.pack(NAME_FORMAT, filename)
@@ -33,7 +34,7 @@ payload_data = struct.pack(PAYLOAD_FORMAT, file_contents)
 message = fixed_data + name_data + struct.pack('I', payload_size) + payload_data
 
 print("message: ", message)
-
+print(message.hex())
 def recvall(sock, count):
     buf = b''
     while count:

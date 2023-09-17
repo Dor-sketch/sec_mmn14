@@ -1,10 +1,11 @@
 #include "session.hpp"
 
-Session::Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path, std::vector<char> &requestBuffer)
+Session::Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path)
 : socket_(std::move(socket)),
   file_handler_(folder_path),
-  message_(requestBuffer, socket),
-  header_buffer{0} // Initialize header_buffer_ with size 8
+  requestBuffer_{0},
+//   message_(requestBuffer_, socket_),
+  header_buffer_{0} // Initialize header_buffer_ with size 8
 {}
 
 void Session::start()
@@ -15,22 +16,25 @@ void Session::start()
 void Session::do_read_header()
 {
     auto self(shared_from_this());
+    std::cout << "inside do_read_header" << std::endl;
+    std::cout << "checking if socket_ is open" << std::endl;
+    std::cout << "socket_.is_open() is: " << socket_.is_open() << std::endl;
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(header_buffer, Message::HEADER_LENGTH),
+                            boost::asio::buffer(header_buffer_, Message::HEADER_LENGTH),
                             [this, self](boost::system::error_code ec, std::size_t /*length*/)
                             {
+                                std::cout << "checking if socket_ is open" << std::endl;
+                                std::cout << "socket_.is_open() is: " << socket_.is_open() << std::endl;
                                 if (!ec)
                                 {
                                     std::cout << "inside do_read_header" << std::endl;
                                     std::cout << "header_buffer_ ";
                                     for (int i = 0; i < 8; i++)
                                     {
-                                        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)header_buffer[i] << " ";
+                                        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)header_buffer_[i] << " ";
                                     }
                                     std::cout << std::endl;
-                                    char head_buffer[Message::HEADER_LENGTH] = {0}; // Initialize all elements to zero
-
-                                    message_.set_header_buffer(header_buffer);
+                                    message_.set_header_buffer(header_buffer_);
                                     std::cout << "header_buffer_ was set" << std::endl; 
                                     
                                     std::cout << "head_buffer_ is: " << message_.get_header_buffer() << std::endl;

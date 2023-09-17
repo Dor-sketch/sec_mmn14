@@ -114,32 +114,49 @@ void Message::startReadFilename()
 
 bool Message::parse_fixed_header()
 {
-    std::cout << "inside parse_header" << std::endl;
-
-    std::cout << "buffer size: " << get_header_buffer().size() << std::endl;
-    
     for (int i = 0; i < HEADER_LENGTH; ++i)
     {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(header_buffer_[i]) << " ";
+        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(header_buffer_[i]) << " ";
     }
     std::cout << std::endl;
 
-    // Extract fields from header
-    user_id_ = ntohl(*reinterpret_cast<uint32_t *>(&header_buffer_[0]));
+    std::cout << "inside parse_header" << std::endl;
+    user_id_ = *reinterpret_cast<uint32_t *>(&header_buffer_[0]);
+    std::cout << "user_id_ (bytes): " << user_id_ << std::endl;
+    std::cout << "user id string is: " << std::to_string(user_id_) << std::endl;
+    
+    
     version_ = header_buffer_[4];
+    std::cout << "version_: " << version_ << std::endl;
+    std::cout << "version_ cast to int: " << static_cast<int>(version_) << std::endl;
+    
     op_ = header_buffer_[5];
-    name_len_ = ntohs(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
+    std::cout << "op_: " << op_ << std::endl;
+    std::cout << "static_cast<int>(op_): " << static_cast<int>(op_) << std::endl;
+    std::cout << "std::to_string(op_): " << std::to_string(op_) << std::endl;
+    std::cout << "op_ Memory value: " << std::hex << +op_ << std::endl;
 
-    // user_id_ = boost::asio::buffer_cast<const uint32_t *>(boost::asio::buffer(header_buffer_, sizeof(uint32_t)))[0];
+    std::cout << "op_: " << static_cast<int>(op_) << std::endl;
+    name_len_ = *reinterpret_cast<uint16_t *>(&header_buffer_[6]);
+    std::cout << "name_len_: " << name_len_ << std::endl;
+    name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
+    std::cout << "name_len_ after le16toh: " << name_len_ << std::endl;
+
+    char *user_id_ptr = reinterpret_cast<char *>(&user_id_);
+    for (int i = 0; i < sizeof(uint32_t); ++i)
+    {
+        if (std::isprint(user_id_ptr[i]))
+        { // Check if it's a printable character
+            std::cout << user_id_ptr[i];
+        }
+        else
+        {
+            std::cout << ".";
+        }
+    }
+    std::cout << std::endl;
 
 
-
-
-
-
-    // name_len_ = boost::asio::buffer_cast<const uint16_t *>(boost::asio::buffer(header_buffer_ + 6, sizeof(uint16_t)))[0];
-
-    std::cout << "user_id_: " << user_id_ << std::endl;
     std::cout << "version_: " << static_cast<int>(version_) << std::endl;
     std::cout << "op_: " << static_cast<int>(op_) << std::endl;
     std::cout << "name_len_: " << name_len_ << std::endl;
