@@ -40,19 +40,18 @@ void Session::do_read_header()
                                     std::cout << "head_buffer_ is: " << message_.get_header_buffer() << std::endl;
                                     if(message_.parse_fixed_header())
                                     {
-                                        std::cerr << "Error parsing header: " << ec.message() << std::endl;
-                                    }
-                                    // copy file name if not OP_GET_FILE_LIST
-                                    if (message_.get_op_code() != Message::OP_GET_FILE_LIST)
-                                    {
-                                        do_read_filename();
-                                    }
-                                    else
-                                    {
-                                        std::cout << "inside do_read_header else" << std::endl;
+                                        // copy file name if not OP_GET_FILE_LIST
+                                        if (message_.get_op_code() != Message::OP_GET_FILE_LIST)
+                                        {
+                                            do_read_filename();
+                                        }
+                                        else
+                                        {
+                                            std::cout << "inside do_read_header else" << std::endl;
+                                            // handle_request();
+                                        }
                                         // handle_request();
                                     }
-                                    // handle_request();
                                 }
                                 else
                                 {
@@ -64,14 +63,33 @@ void Session::do_read_header()
 void Session::do_read_filename()
 {
     auto self(shared_from_this());
-    boost::asio::async_read(socket_, boost::asio::buffer(message_.get_buffer(), message_.get_name_length()),
+    message_.get_buffer().resize(message_.get_name_length());
+    std::cout << "inside do_read_filename" << std::endl;
+    boost::asio::async_read(socket_,
+                            boost::asio::buffer(message_.get_buffer(), message_.get_name_length()),
                             [this, self](boost::system::error_code ec, std::size_t length)
                             {
                                 if (!ec)
                                 {
-                                    printf("Filename: %s\n", message_.get_buffer().data());
+                                    std::cout << "Bytes read: " << length << std::endl;
+
+                                    // If the length read is not what you expect, it might be indicative of a problem.
+                                    if (length != message_.get_name_length())
+                                    {
+                                        std::cerr << "Unexpected number of bytes read!" << std::endl;
+                                    }
+
+                                    for (int i = 0; i < length; i++)
+                                    {
+                                        printf("%02X ", static_cast<unsigned char>(message_.get_buffer()[i]));
+                                    }
+                                    printf("\n");
                                     message_.set_filename();
                                     // Continue processing the filename or the next piece of data.
+                                }
+                                else
+                                {
+                                    std::cerr << "Error reading from socket: " << ec.message() << std::endl;
                                 }
                             });
 }

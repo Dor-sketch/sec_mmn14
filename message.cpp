@@ -141,25 +141,10 @@ bool Message::parse_fixed_header()
     std::cout << "Direct static_cast<int>(testOp): " << static_cast<int>(testOp) << std::endl;
     std::cout << "Direct std::to_string(testOp): " << std::to_string(testOp) << std::endl;
 
-
-
     name_len_ = *reinterpret_cast<uint16_t *>(&header_buffer_[6]);
     std::cout << "name_len_: " << name_len_ << std::endl;
     name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
     std::cout << "name_len_ after le16toh: " << name_len_ << std::endl;
-
-
-  
-
-    std::cout << "version_: " << static_cast<int>(version_) << std::endl;
-    std::cout << "op_: " << static_cast<int>(op_) << std::endl;
-    std::cout << "name_len_: " << name_len_ << std::endl;
-
-    // // If op is not get file list copy filename from header and add null terminator
-    // if (op_ != OP_GET_FILE_LIST)
-    // {
-    //     return false;
-    // }
 
 
     if (op_ != OP_SAVE_FILE && op_ != OP_RESTORE_FILE && op_ != OP_DELETE_FILE && op_ != OP_GET_FILE_LIST)
@@ -307,6 +292,7 @@ void Message::set_filename() {
     }
     
     filename_ = std::string(buffer_.data(), name_len_);
+    std::cout << "filename_ was set: " << filename_ << std::endl;
 }
 
  std::vector<char> &Message::get_buffer() {
