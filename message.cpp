@@ -44,31 +44,31 @@ Message::Message(std::vector<char> &requestBuffer,
 
 void Message::startReadFilename()
     {
-        std::cout << "inside startReadFilename" << std::endl;
-        try
-        {
-            if (socket_.is_open())
-            {
-                std::cout << "inside startReadFilename socket is open" << std::endl;
-                socket_.async_read_some(
-                    boost::asio::buffer(buffer_, get_file_size()),
-                    [this](boost::system::error_code ec, std::size_t bytes_transferred)
-                    {
-                        if (!ec)
-                        {
-                            set_filename(std::string(buffer_.begin(), buffer_.begin() + bytes_transferred));
-                        }
-                        else
-                        {
+    //     std::cout << "inside startReadFilename" << std::endl;
+    //     try
+    //     {
+    //         if (socket_.is_open())
+    //         {
+    //             std::cout << "inside startReadFilename socket is open" << std::endl;
+    //             socket_.async_read_some(
+    //                 boost::asio::buffer(buffer_, get_file_size()),
+    //                 [this](boost::system::error_code ec, std::size_t bytes_transferred)
+    //                 {
+    //                     if (!ec)
+    //                     {
+    //                         set_filename(std::string(buffer_.begin(), buffer_.begin() + bytes_transferred));
+    //                     }
+    //                     else
+    //                     {
 
-                        }
-                    });
-             }
-        }
-    catch (std::exception &e)
-    {
-        std::cerr << "Exception: " << e.what() << "\n";
-    }
+    //                     }
+    //                 });
+    //          }
+    //     }
+    // catch (std::exception &e)
+    // {
+    //     std::cerr << "Exception: " << e.what() << "\n";
+    // }
 }
 
 // void Message::startReadFilename()
@@ -136,39 +136,30 @@ bool Message::parse_fixed_header()
     std::cout << "std::to_string(op_): " << std::to_string(op_) << std::endl;
     std::cout << "op_ Memory value: " << std::hex << +op_ << std::endl;
 
-    std::cout << "op_: " << static_cast<int>(op_) << std::endl;
+    uint8_t testOp = 100;
+    std::cout << "Direct testOp: " << testOp << std::endl;
+    std::cout << "Direct static_cast<int>(testOp): " << static_cast<int>(testOp) << std::endl;
+    std::cout << "Direct std::to_string(testOp): " << std::to_string(testOp) << std::endl;
+
+
+
     name_len_ = *reinterpret_cast<uint16_t *>(&header_buffer_[6]);
     std::cout << "name_len_: " << name_len_ << std::endl;
     name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
     std::cout << "name_len_ after le16toh: " << name_len_ << std::endl;
 
-    char *user_id_ptr = reinterpret_cast<char *>(&user_id_);
-    for (int i = 0; i < sizeof(uint32_t); ++i)
-    {
-        if (std::isprint(user_id_ptr[i]))
-        { // Check if it's a printable character
-            std::cout << user_id_ptr[i];
-        }
-        else
-        {
-            std::cout << ".";
-        }
-    }
-    std::cout << std::endl;
 
+  
 
     std::cout << "version_: " << static_cast<int>(version_) << std::endl;
     std::cout << "op_: " << static_cast<int>(op_) << std::endl;
     std::cout << "name_len_: " << name_len_ << std::endl;
 
-    // If op is not get file list copy filename from header and add null terminator
-    if (op_ != OP_GET_FILE_LIST)
-    {
-        std::cout << "inside op_ != OP_GET_FILE_LIST" << std::endl;
-        startReadFilename();
-        filename_.push_back('\0');
-        std::cout << "filename_: " << filename_ << std::endl;
-    }
+    // // If op is not get file list copy filename from header and add null terminator
+    // if (op_ != OP_GET_FILE_LIST)
+    // {
+    //     return false;
+    // }
 
 
     if (op_ != OP_SAVE_FILE && op_ != OP_RESTORE_FILE && op_ != OP_DELETE_FILE && op_ != OP_GET_FILE_LIST)
@@ -304,8 +295,20 @@ void Message::set_header_buffer(const char *buffer) {
     header_buffer_[HEADER_LENGTH] = {0}; // Initialize all elements to zero
 }
 
-void Message::set_filename(const std::string &filename) {
-    filename_ = filename;
-    name_len_ = filename_.length();
+void Message::set_filename() {
+    if (op_ == OP_GET_FILE_LIST)
+    {
+        std::cerr << "Error: Cannot set filename for OP_GET_FILE_LIST" << std::endl;
+        return;
+    }
+    else if (buffer_.empty())
+    {
+        std::cerr << "Error: Cannot set filename. Buffer is empty." << std::endl;
+    }
+    
+    filename_ = std::string(buffer_.data(), name_len_);
 }
 
+ std::vector<char> &Message::get_buffer() {
+    return buffer_;
+}

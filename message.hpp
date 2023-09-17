@@ -33,10 +33,10 @@ private:
     uint32_t file_size_;
     std::string file_contents_;
     std::vector<std::string> file_list_;
-    std::vector<char> buffer_;
     std::string filename_;
     boost::asio::io_context io_context_; 
     boost::asio::ip::tcp::socket socket_;
+    std::vector<char> buffer_; // to store bigget messages and inteact with asio
 
 public:
     // getters
@@ -47,10 +47,11 @@ public:
     std::string get_header_buffer() const;
     const std::string &get_filename() const;
     const std::vector<std::string> &get_file_list() const;
+     std::vector<char> &get_buffer() ;
 
     // setters
     void set_file_content(const std::string &content);
-    void set_filename(const std::string &filename);
+    void set_filename();
     void set_header_buffer(const char *buffer);
     void set_file_list(const std::vector<std::string> &file_list);
 

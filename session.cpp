@@ -42,11 +42,36 @@ void Session::do_read_header()
                                     {
                                         std::cerr << "Error parsing header: " << ec.message() << std::endl;
                                     }
+                                    // copy file name if not OP_GET_FILE_LIST
+                                    if (message_.get_op_code() != Message::OP_GET_FILE_LIST)
+                                    {
+                                        do_read_filename();
+                                    }
+                                    else
+                                    {
+                                        std::cout << "inside do_read_header else" << std::endl;
+                                        // handle_request();
+                                    }
                                     // handle_request();
                                 }
                                 else
                                 {
                                     std::cerr << "Error reading header: " << ec.message() << std::endl;
+                                }
+                            });
+}
+
+void Session::do_read_filename()
+{
+    auto self(shared_from_this());
+    boost::asio::async_read(socket_, boost::asio::buffer(message_.get_buffer(), message_.get_name_length()),
+                            [this, self](boost::system::error_code ec, std::size_t length)
+                            {
+                                if (!ec)
+                                {
+                                    printf("Filename: %s\n", message_.get_buffer().data());
+                                    message_.set_filename();
+                                    // Continue processing the filename or the next piece of data.
                                 }
                             });
 }
@@ -57,10 +82,6 @@ void Session::handle_request()
     {
     case Message::OP_SAVE_FILE:
     {
-        // Read file name
-        std::string filename;
-        do_read_dynamicsize(message_.get_name_length(), &filename);
-        message_.set_filename(filename);
 
         // Save file
         file_handler_.save_file(message_.get_filename(), message_.get_file_content());
@@ -86,23 +107,23 @@ void Session::handle_request()
 
 void Session::do_read_dynamicsize(int field_size, std::string *my_copy)
 {
-    // auto self(shared_from_this());
-    // char *buffer = new char[field_size];
-    // boost::asio::async_read(socket_,
-    //                         boost::asio::buffer(buffer, field_size),
-    //                         [this, self, buffer, field_size, my_copy](boost::system::error_code ec, std::size_t /*length*/)
-    //                         {
-    //                             if (!ec)
-    //                             {
-    //                                 my_copy->assign(buffer, field_size);
-    //                                 delete[] buffer;
-    //                             }
-    //                             else
-    //                             {
-    //                                 std::cerr << "Error reading dynamic field: " << ec.message() << std::endl;
-    //                                 delete[] buffer;
-    //                             }
-    //                         });
+    auto self(shared_from_this());
+    char *buffer = new char[field_size];
+    boost::asio::async_read(socket_,
+                            boost::asio::buffer(buffer, field_size),
+                            [this, self, buffer, field_size, my_copy](boost::system::error_code ec, std::size_t /*length*/)
+                            {
+                                if (!ec)
+                                {
+                                    my_copy->assign(buffer, field_size);
+                                    delete[] buffer;
+                                }
+                                else
+                                {
+                                    std::cerr << "Error reading dynamic field: " << ec.message() << std::endl;
+                                    delete[] buffer;
+                                }
+                            });
 }
 
 void Session::do_read_payload()

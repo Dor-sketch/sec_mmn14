@@ -23,12 +23,12 @@ private:
     void do_read_dynamicsize(int field_size, std::string *my_copy);
     void do_read_payload();
     void handle_request();
+    void do_read_filename ();
 
-public:
-    // Constructor
-    Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket,
-            const std::string &folder_path);
-
+public :
+        // Constructor
+        Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket,
+                const std::string &folder_path);
 
     // Public member function
     void start();
