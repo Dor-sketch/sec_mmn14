@@ -37,7 +37,6 @@ void Session::do_read_header()
                                         // copy file content if OP_SAVE_FILE
                                         if (message_.get_op_code() == Message::OP_SAVE_FILE){
                                             do_read_fileSize();
-                                            do_read_payload();
                                         }
                                         
                                         handle_request();
@@ -66,6 +65,7 @@ void Session::do_read_filename()
                                     }
 
                                     message_.set_filename();
+
                                 }
                                 else std::cerr << "Error reading from socket: " << ec.message() << std::endl;
                             });
@@ -83,6 +83,8 @@ void Session::do_read_fileSize()
                                 if (!ec)
                                 {
                                     message_.set_file_size();
+                                    printf("file size: %d\n", message_.get_file_size());
+                                    do_read_payload();
                                 }
                                 else
                                 {
@@ -95,24 +97,44 @@ void Session::do_read_fileSize()
 void Session::do_read_payload()
 {
     auto self(shared_from_this());
-    message_.get_buffer().resize(message_.get_file_size());
+
+    while (message_.get_file_size()==0)
+    {
+        std::cout << "waiting for file size to be set" << std::endl;
+        sleep(1);
+    }
+    // Resize the buffer to hold the name and the file content
+    message_.get_buffer().resize(message_.get_name_length() + message_.get_file_size());
+
+    // Create an iterator to point to the start of where the file content should be
+    auto it = message_.get_buffer().begin() + message_.get_name_length();
+    // std::string hello_world(message_.get_file_size(), 'a');
+    // std::copy(hello_world.begin(), hello_world.end(), it);
+
+    // std::cout << "it: " << *it << std::endl;
+    // message_.set_file_content();
+
     std::cout << "inside do_read_payload" << std::endl;
     boost::asio::async_read(socket_,
-                            boost::asio::buffer(message_.get_buffer(), message_.get_file_size()),
+                            boost::asio::buffer(&(*it), message_.get_file_size()),
                             [this, self](boost::system::error_code ec, std::size_t length)
                             {
-                                if (!ec) {
-                                    if (length != message_.get_file_size()) {
+                                if (!ec)
+                                {
+                                    if (length != message_.get_file_size())
+                                    {
                                         std::cerr << "Unexpected number of bytes read!" << std::endl;
                                     }
 
-                                    message_.set_file_content();
+                                    // Here, you might want to process or store the received file content
+                                    message_.set_file_content(); // Make sure this function does what you expect
                                 }
-                                else std::cerr << "Error reading from socket: " << ec.message() << std::endl;
+                                else
+                                {
+                                    std::cerr << "Error reading from socket: " << ec.message() << std::endl;
+                                }
                             });
 }
-
-
 
 void Session::handle_request()
 {

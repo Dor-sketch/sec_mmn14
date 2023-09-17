@@ -25,6 +25,8 @@ Status FileHandler::save_file(uint32_t user_id, const std::string &filename, con
     std::string dir_path = folder_path_ + "/" + user_id_str;
     std::string full_path = dir_path + "/" + filename;
 
+    std::cout << "Saving file to: " << full_path << '\n';
+    
     // Check and create directory if it doesn't exist
     if (!boost::filesystem::exists(dir_path))
     {

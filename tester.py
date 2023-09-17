@@ -7,11 +7,11 @@ SERVER_PORT = 1234  # Replace with the port number of the server
 
 
 # Define the test data
-user_id = 1235
+user_id = 1233
 version = 1
 op = 100
 filename = b'dor.txt'
-file_contents = b'baaaaaaaaaaa'
+file_contents = b'acx'
 
 # Compute lengths
 name_len = len(filename)

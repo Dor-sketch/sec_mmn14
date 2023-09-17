@@ -190,6 +190,13 @@ const std::string &Message::get_file_content() const {
 
 // setters
 void Message::set_file_content() {
+    std::cout << "inside set_file_content" << std::endl;
+    for (const auto &byte : file_contents_)
+    {
+        std::cout << std::hex << static_cast<int>(byte) << " ";
+    }
+    std::cout << std::endl;
+
     if (op_ != OP_SAVE_FILE)
     {
         std::cerr << "Error: invalid op for file content" << std::endl;
@@ -200,8 +207,23 @@ void Message::set_file_content() {
         std::cerr << "Error: Cannot set filename. Buffer is empty." << std::endl;
     }
 
-    file_contents_ = std::string(buffer_.data(), name_len_);
-    std::cout << "filename_content set: " << file_contents_ << std::endl;
+    // file_contents_ = std::string(buffer_.data()+name_len_, file_size_);
+    std::copy(buffer_.begin() + name_len_, buffer_.begin() + name_len_ + file_size_, std::back_inserter(file_contents_));
+    std::cout << "file_contents_ set: " << file_contents_ << std::endl;
+    for (const auto &byte : file_contents_)
+    {
+        std::cout << static_cast<int>(byte) << " ";
+    }
+
+    std::string str(reinterpret_cast<const char *>(file_contents_.data()), file_contents_.size());
+    std::cout << "\n\nfile_contents_ set to string: " << file_contents_ << std::endl;
+
+    for (const auto &byte : file_contents_)
+    {
+        std::cout << static_cast<int>(byte) << " ";
+    }
+    std::cout << std::endl;
+
     buffer_.clear();
 }
 
@@ -236,7 +258,9 @@ void Message::set_filename() {
     
     filename_ = std::string(buffer_.data(), name_len_);
     std::cout << "filename_ was set: " << filename_ << std::endl;
-    buffer_.clear();
+    // buffer_.clear();
+    // std::cout << "buffer_ was cleared" << std::endl;
+
 }
 
  std::vector<char> &Message::get_buffer() {
