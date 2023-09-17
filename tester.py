@@ -11,7 +11,7 @@ user_id = 1234
 version = 1
 op = 100
 filename = b'dor.txt'
-file_contents = b'b'
+file_contents = b'baaaaaaaaaaa'
 
 # Compute lengths
 name_len = len(filename)

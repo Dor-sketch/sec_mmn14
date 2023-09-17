@@ -202,6 +202,7 @@ void Message::set_file_content() {
 
     file_contents_ = std::string(buffer_.data(), name_len_);
     std::cout << "filename_content set: " << file_contents_ << std::endl;
+    buffer_.clear();
 }
 
 

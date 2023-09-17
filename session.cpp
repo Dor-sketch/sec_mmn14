@@ -37,7 +37,7 @@ void Session::do_read_header()
                                         // copy file content if OP_SAVE_FILE
                                         if (message_.get_op_code() == Message::OP_SAVE_FILE){
                                             do_read_fileSize();
-                                            // do_read_payload();
+                                            do_read_payload();
                                         }
                                         
                                         handle_request();
