@@ -70,9 +70,14 @@ std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &fi
 
 
 
-std::vector<char> FileHandler::restore_file(const std::string &filename)
+std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string &filename)
 {
-    std::string full_path = folder_path_ + "/" + filename;
+    std::string user_id_str = std::to_string(user_id);
+    std::string dir_path = folder_path_ + "/" + user_id_str;
+    std::string file_name_str = filename;
+    std::cout << file_name_str << std::endl;
+    std::string full_path = dir_path + "/" + file_name_str;
+
     std::ifstream ifs(full_path, std::ios::binary);
 
     if (!ifs)
@@ -91,17 +96,23 @@ std::vector<char> FileHandler::restore_file(const std::string &filename)
 
 
 
-
-
-
-std::vector<char> FileHandler::delete_file(const std::string &filename)
+std::vector<char> FileHandler::delete_file(uint32_t user_id, const std::string &filename)
 {
-    std::string full_path = folder_path_ + "/" + filename;
+    std::string user_id_str = std::to_string(user_id);
+    std::string dir_path = folder_path_ + "/" + user_id_str;
+    std::string file_name_str = filename;
+    std::string full_path = dir_path + "/" + file_name_str;
 
-    if (std::remove(full_path.c_str()) != 0)
+    if (remove(full_path.c_str()) != 0)
     {
-        pack_response(Status::FAILURE, OP_DELETE_FILE);
+        std::cerr << "Error deleting file: " << full_path << '\n';
+        return pack_response(Status::FAILURE, OP_DELETE_FILE);
     }
+    else
+    {
+        std::cout << "File deleted successfully" << '\n';
+    }
+
     // no success status is defined in the protocol, so we use SUCCESS_SAVE
     pack_response(Status::SUCCESS_SAVE, OP_DELETE_FILE); 
 }
@@ -167,15 +178,20 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
         break;
 
     case OP_RESTORE_FILE:
+        // no specal staus for restore file
         if (status == Status::SUCCESS_SAVE)
         {
             // Set response fields
             name_len = filename_.length();
-            payload_size = file_size_;
+            payload_size = file_contents_.length();
 
             // Pack response
             payload.append(reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
             payload.append(file_contents_);
+            for (const auto &byte : payload)
+            {
+                std::cout << std::hex << static_cast<int>(byte) << " ";
+            }
         }
         break;
 
@@ -192,7 +208,18 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
         break;
 
     case OP_GET_FILE_LIST:
-        //... Handle get file list response logic
+        // Compute the total length of the payload
+        payload_size = 0;
+        for (const auto &file : file_list_)
+        {
+            payload_size += file.size() + 1; // +1 for the newline character
+        }
+        // Append each file name and newline to the payload
+        for (const auto &file : file_list_)
+        {
+            payload.append(file);
+            payload.append("\n");
+        }
         break;
 
     default:
@@ -205,9 +232,19 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
     responseBuffer.push_back(static_cast<char>(status_code));
     responseBuffer.push_back(name_len & 0xFF);            // lower byte
     responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte
-    responseBuffer.push_back(payload_size & 0xFF);        // lower byte
-    responseBuffer.push_back((payload_size >> 8) & 0xFF); // upper byte
-    // ... pack other header fields as requi
+
+    // Packing the payload size
+    responseBuffer.push_back(payload_size & 0xFF);        // byte 0
+    responseBuffer.push_back((payload_size >> 8) & 0xFF); // byte 1
+    responseBuffer.push_back((payload_size >> 16) & 0xFF); // byte 2
+    responseBuffer.push_back((payload_size >> 24) & 0xFF); // byte 3
+
+    std::cout << "Packing Response: " << std::endl;
+    std::cout << "Version: " << (int)version << std::endl;
+    std::cout << "Status Code: " << status_code << std::endl;
+    std::cout << "Name Length: " << name_len << std::endl;
+    std::cout << "Payload Size: " << payload_size << std::endl;
+
     // Packing the payload
     responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
     std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
