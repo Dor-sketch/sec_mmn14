@@ -13,4 +13,11 @@ enum class Status : uint16_t
     PROCESSING = 1         // default status, still processing request - for inner use
 };
 
+// Op codes
+static const uint8_t OP_SAVE_FILE = 100;
+static const uint8_t OP_RESTORE_FILE = 200;
+static const uint8_t OP_DELETE_FILE = 201;
+static const uint8_t OP_GET_FILE_LIST = 202;
+
+
 #endif // SERVER_STATUS_HPP

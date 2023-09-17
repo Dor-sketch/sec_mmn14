@@ -78,83 +78,17 @@ bool Message::parse_fixed_header()
     name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
     std::cout << "name_len_ after le16toh: " << name_len_ << std::endl;
 
+    printf("finish parse\n\n\n");
 
     if (op_ != OP_SAVE_FILE && op_ != OP_RESTORE_FILE && op_ != OP_DELETE_FILE && op_ != OP_GET_FILE_LIST)
     {
+        std::cerr << "Error: Invalid OP code received." << std::endl;
         throw std::runtime_error ("Invalid OP code received.");
     }
 
     return true;
 }
 
-void Message::pack_response(Status status, std::vector<char> &responseBuffer)
-{
-    std::cout << "inside pack_response" << std::endl;
-    uint8_t version = 1;
-    uint16_t status_code = static_cast<uint16_t>(status);
-    uint16_t name_len = 0;
-    uint32_t payload_size = 0;
-    std::string payload;
-
-    switch (op_) {
-    case OP_SAVE_FILE:
-        if (status == Status::SUCCESS_SAVE)
-        {
-            // Set response fields
-            name_len = filename_.length();
-            payload_size = file_size_;
-
-            // Pack response
-            payload.append(reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
-            payload.append(file_contents_);
-        }
-        break;
-
-    case OP_RESTORE_FILE:
-        if (status == Status::SUCCESS_SAVE)
-        {
-            // Set response fields
-            name_len = filename_.length();
-            payload_size = file_size_;
-
-            // Pack response
-            payload.append(reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
-            payload.append(file_contents_);
-        }
-        break;
-
-    case OP_DELETE_FILE:
-        if (status == Status::SUCCESS_FILE_LIST)
-        {
-            // Set response fields
-            payload = boost::algorithm::join(file_list_, "\n");
-            payload_size = payload.length();
-
-            // Pack response
-            payload.insert(0, reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
-        }
-            break;
-
-        case OP_GET_FILE_LIST:
-            //... Handle get file list response logic
-            break;
-
-        default:
-            payload = "Error: Invalid operation.";
-            payload_size = payload.size();
-            break;
-    }
-    // Packing the header. (This is just a simple example, adapt as needed.)
-    responseBuffer.push_back(version);
-    responseBuffer.push_back(static_cast<char>(status_code));
-    responseBuffer.push_back(name_len & 0xFF);            // lower byte
-    responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte
-    responseBuffer.push_back(payload_size & 0xFF);        // lower byte
-    responseBuffer.push_back((payload_size >> 8) & 0xFF); // upper byte
-    // ... pack other header fields as requi
-    // Packing the payload
-    responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
-}
 
 // getters - small type
 uint8_t Message::get_op_code() const {

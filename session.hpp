@@ -25,6 +25,8 @@ private:
     void handle_request();
     void do_read_filename ();
     void do_read_fileSize();
+    void send_response(const std::string &response);
+    void graceful_close();
 
 public :
         // Constructor

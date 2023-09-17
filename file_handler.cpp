@@ -6,6 +6,7 @@
 #include <dirent.h> // For opendir, readdir, etc.
 #include <algorithm> // For std::sort
 #include <string>
+#include <vector>
 
 FileHandler::FileHandler(const std::string &folder_path) 
 : folder_path_(folder_path),
@@ -16,14 +17,16 @@ FileHandler::FileHandler(const std::string &folder_path)
     {
         boost::filesystem::create_directory(folder_path_);
     }
-    file_list_ = get_file_list();
 }
 
-Status FileHandler::save_file(uint32_t user_id, const std::string &filename, const std::string &content)
+std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &filename, const std::string &content)
 {
     std::string user_id_str = std::to_string(user_id);
     std::string dir_path = folder_path_ + "/" + user_id_str;
-    std::string full_path = dir_path + "/" + filename;
+    std::string file_name_str = filename;
+
+    std::cout << file_name_str << std::endl;
+    std::string full_path = dir_path + "/" + file_name_str;
 
     std::cout << "Saving file to: " << full_path << '\n';
     
@@ -33,7 +36,7 @@ Status FileHandler::save_file(uint32_t user_id, const std::string &filename, con
         if (!boost::filesystem::create_directories(dir_path))
         {
             std::cerr << "Failed to create directory: " << dir_path << '\n';
-            return Status::FAILURE;
+            return pack_response(Status::FAILURE, OP_SAVE_FILE);
         }
     }
 
@@ -42,7 +45,7 @@ Status FileHandler::save_file(uint32_t user_id, const std::string &filename, con
     if (!ofs)
     {
         std::cerr << "Failed to open file: " << full_path << '\n';
-        return Status::FAILURE;
+        return pack_response(Status::FAILURE, OP_SAVE_FILE);
     }
 
     ofs << content; // use stream insertion for strings, more idiomatic
@@ -51,14 +54,23 @@ Status FileHandler::save_file(uint32_t user_id, const std::string &filename, con
     {
         ofs.close();
         std::cerr << "Failed to write to file: " << full_path << '\n';
-        return Status::FAILURE;
+        return pack_response(Status::FAILURE,OP_SAVE_FILE);
     }
 
     ofs.close();
-    return Status::SUCCESS_SAVE;
+    return pack_response(Status::SUCCESS_SAVE, OP_SAVE_FILE);
 }
 
-std::string FileHandler::restore_file(const std::string &filename)
+
+
+
+
+
+
+
+
+
+std::vector<char> FileHandler::restore_file(const std::string &filename)
 {
     std::string full_path = folder_path_ + "/" + filename;
     std::ifstream ifs(full_path, std::ios::binary);
@@ -66,37 +78,51 @@ std::string FileHandler::restore_file(const std::string &filename)
     if (!ifs)
     {
         // Error opening file for reading
-        return ""; // or throw an exception or return an error status
+        return pack_response(Status::FAILURE,OP_RESTORE_FILE); // or throw an exception or return an error status
     }
 
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
 
-    return content;
+    file_contents_ = content;
+
+    return pack_response(Status::SUCCESS_SAVE, OP_RESTORE_FILE);
 }
 
 
 
 
-Status FileHandler::delete_file(const std::string &filename)
+
+
+
+std::vector<char> FileHandler::delete_file(const std::string &filename)
 {
     std::string full_path = folder_path_ + "/" + filename;
 
     if (std::remove(full_path.c_str()) != 0)
     {
-        return Status::FAILURE;
+        pack_response(Status::FAILURE, OP_DELETE_FILE);
     }
     // no success status is defined in the protocol, so we use SUCCESS_SAVE
-    return Status::SUCCESS_SAVE; 
+    pack_response(Status::SUCCESS_SAVE, OP_DELETE_FILE); 
 }
 
 
 
 
 
-std::vector<std::string> FileHandler::get_file_list()
+
+
+
+
+
+std::vector<char> FileHandler::get_file_list(uint32_t user_id)
 {
+    printf("inside get_file_list\n\n\n");
+    std::string user_id_str = std::to_string(user_id);
+    std::string dir_path = folder_path_ + "/" + user_id_str;
+
     std::vector<std::string> file_list;
-    if (auto dir = opendir(folder_path_.c_str()))
+    if (auto dir = opendir(dir_path.c_str()))
     {
         while (auto f = readdir(dir))
         {
@@ -109,20 +135,89 @@ std::vector<std::string> FileHandler::get_file_list()
         closedir(dir);
     }
     std::sort(file_list.begin(), file_list.end());
-    
-    return file_list;
+
+    file_list_ = file_list;
+
+    return pack_response (Status::SUCCESS_FILE_LIST, OP_GET_FILE_LIST);
 }
 
-void FileHandler::parse_payload()
+std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
 {
-    // ... Parse payload logic ...
+    std::vector<char> responseBuffer;
+    std::cout << "inside pack_response" << std::endl;
+    uint8_t version = 1;
+    uint16_t status_code = static_cast<uint16_t>(status);
+    uint16_t name_len = 0;
+    uint32_t payload_size = 0;
+    std::string payload;
+
+    switch (op_)
+    {
+    case OP_SAVE_FILE:
+        if (status == Status::SUCCESS_SAVE)
+        {
+            // Set response fields
+            name_len = filename_.length();
+            payload_size = file_size_;
+
+            // Pack response
+            payload.append(reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
+            payload.append(file_contents_);
+        }
+        break;
+
+    case OP_RESTORE_FILE:
+        if (status == Status::SUCCESS_SAVE)
+        {
+            // Set response fields
+            name_len = filename_.length();
+            payload_size = file_size_;
+
+            // Pack response
+            payload.append(reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
+            payload.append(file_contents_);
+        }
+        break;
+
+    case OP_DELETE_FILE:
+        if (status == Status::SUCCESS_FILE_LIST)
+        {
+            // Set response fields
+            // payload = algorithm::join(file_list_, "\n");
+            payload_size = payload.length();
+
+            // Pack response
+            payload.insert(0, reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
+        }
+        break;
+
+    case OP_GET_FILE_LIST:
+        //... Handle get file list response logic
+        break;
+
+    default:
+        payload = "Error: Invalid operation.";
+        payload_size = payload.size();
+        break;
+    }
+    // Packing the header. (This is just a simple example, adapt as needed.)
+    responseBuffer.push_back(version);
+    responseBuffer.push_back(static_cast<char>(status_code));
+    responseBuffer.push_back(name_len & 0xFF);            // lower byte
+    responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte
+    responseBuffer.push_back(payload_size & 0xFF);        // lower byte
+    responseBuffer.push_back((payload_size >> 8) & 0xFF); // upper byte
+    // ... pack other header fields as requi
+    // Packing the payload
+    responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
+    std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
+    for (const auto &byte : responseBuffer)
+    {
+        std::cout << std::hex << static_cast<int>(byte) << " ";
+    }
+    std::cout << std::endl;
+
+    return responseBuffer;
+
 }
-
-void FileHandler::pack_response(Status status, std::vector<char> &responseBuffer)
-{
-    // ... Pack response logic ...
-}
-
-// ... other method implementations ...
-
 

@@ -15,11 +15,7 @@ public:
     Message(std::vector<char> & requestBuffer,
             boost::asio::ip::tcp::socket &socket);
 
-    // Op codes
-    static const uint8_t OP_SAVE_FILE = 100;
-    static const uint8_t OP_RESTORE_FILE = 200;
-    static const uint8_t OP_DELETE_FILE = 201;
-    static const uint8_t OP_GET_FILE_LIST = 202;
+
 
     enum { HEADER_LENGTH = 8 }; // without filename
     enum { FILE_SIZE_BUFFER_LENGTH = 4 };
@@ -63,7 +59,7 @@ public:
 
     // ... other utility methods ...
     bool parse_fixed_header();
-    void pack_response(Status status, std::vector<char> &responseBuffer);
+
     void do_read_dynamicsize(uint16_t size, std::string *dest);
     void startReadFilename();
 
