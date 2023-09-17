@@ -15,6 +15,7 @@ private:
     boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket_;
     Message message_;
     FileHandler file_handler_;
+    char header_buffer[8];
 
     // Private member functions
     void do_read_header();
@@ -25,6 +26,7 @@ private:
 public:
     // Constructor
     Session(boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket, const std::string &folder_path);
+
 
     // Public member function
     void start();

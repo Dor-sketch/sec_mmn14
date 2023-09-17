@@ -7,11 +7,11 @@ SERVER_PORT = 1234  # Replace with the port number of the server
 
 
 # Define the test data
-user_id = 1234
+user_id = 1212
 version = 1
-op = 100
-filename = b'aaaaaaaa'
-file_contents = b'bb'
+op = 0x02
+filename = b'dor.txt'
+file_contents = b'b'
 
 # Compute lengths
 name_len = len(filename)
@@ -32,6 +32,7 @@ payload_data = struct.pack(PAYLOAD_FORMAT, file_contents)
 # Concatenate
 message = fixed_data + name_data + struct.pack('I', payload_size) + payload_data
 
+print("message: ", message)
 
 def recvall(sock, count):
     buf = b''

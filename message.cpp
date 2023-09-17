@@ -5,52 +5,142 @@
 #include <iomanip>
 #include <string>
 #include <vector>
+#include <algorithm>
+#include <iterator>
+#include <boost/algorithm/string.hpp>
+#include <string>
+
 
 Message::Message()
+    : io_context_(),
+      socket_(io_context_)
 {
-    // Constructor implementation...
 }
 
-// Not part of your original code, but considering you want to read dynamic size data:
-void Message::do_read_dynamicsize(uint16_t size, std::string *out_string)
+Message::Message(std::vector<char> &requestBuffer, boost::asio::ip::tcp::socket &socket)
+    : socket_(std::move(socket)),
+      buffer_(std::move(requestBuffer)),
+      header_buffer_{8} // Initialize header_buffer_ with size 8
 {
-    // Note: This is just a placeholder function. You'll need to replace this with actual functionality
-    // that reads `size` bytes from wherever you're getting your data, and appends it to `out_string`.
 }
+
+void Message::startReadFilename()
+    {
+        char *buffer = new char[get_file_size()];
+        std::cout << "inside startReadFilename" << std::endl;
+        try
+        {
+            if (socket_.is_open())
+            {
+                std::cout << "inside startReadFilename socket is open" << std::endl;
+                socket_.async_read_some(
+                    boost::asio::buffer(buffer, get_file_size()),
+                    [this, buffer](boost::system::error_code ec, std::size_t bytes_transferred)
+                    {
+                        if (!ec)
+                        {
+                            filename_.assign(buffer, bytes_transferred);
+                            delete[] buffer;
+                        }
+                        else
+                        {
+                            // Handle the error.
+                            delete[] buffer;
+                        }
+                    });
+             }
+        }
+    catch (std::exception &e)
+    {
+        std::cerr << "Exception: " << e.what() << "\n";
+    }
+}
+
+// void Message::startReadFilename()
+// {
+//     auto temp_buffer = std::make_shared<std::vector<char>>(get_name_length());
+
+//     std::cout << "inside startReadFilename" << std::endl;
+
+//     socket_.async_read_some(boost::asio::buffer(temp_buffer->data(), temp_buffer->size()),
+//                             [this, temp_buffer](boost::system::error_code ec, std::size_t bytes_transferred)
+//                             {
+//                                 if (!ec)
+//                                 {
+//                                     filename_ = std::string(temp_buffer->begin(), temp_buffer->begin() + bytes_transferred);
+//                                     // Rest of your code...
+//                                 }
+//                                 // The else block is unchanged. Since temp_buffer is a shared pointer,
+//                                 // it will be destroyed automatically when it goes out of scope.
+//                             });
+// }
+
+// void Message::do_read_dynamicsize(uint16_t size, std::string *out_string)
+// {
+//     std::cout << "inside do_read_dynamicsize" << std::endl;
+//     std::cout << "size: " << size << std::endl;
+//     std::vector<char> buffer(get_name_length());
+//     std::cout << "after alloc" << std::endl;
+//     socket_.async_read_some(boost::asio::buffer(buffer, size),
+//                             [this, buffer, out_string, size](boost::system::error_code ec, std::size_t length)
+//                             {
+//                                 std::cout << "inside do_read_dynamicsize async_read_some" << std::endl;
+//                                 if (!ec)
+//                                 {
+//                                     std::cout << "inside do_read_dynamicsize async_read_some" << std::endl;
+//                                     *out_string = std::string(buffer, length);
+//                                 }
+//                                 else
+//                                 {
+//                                 }
+//                             });
+// }
 
 
 bool Message::parse_fixed_header()
 {
     std::cout << "inside parse_header" << std::endl;
 
-    // Extract fields from header
-    user_id_ = *reinterpret_cast<uint32_t *>(header_buffer_); // Assuming little endian
-    version_ = header_buffer_[4];
-    op_ = header_buffer_[5];
-    name_len_ = *reinterpret_cast<uint16_t *>(header_buffer_ + 6); // little endian
-
-    // If op is not get file list copy filename from header and add null terminator
-    if (op_ != OP_GET_FILE_LIST)
-    {
-        do_read_dynamicsize(name_len_, &filename_);
-        filename_.push_back('\0');
-    }
-
-    // Debug logs
+    std::cout << "buffer size: " << get_header_buffer().size() << std::endl;
+    
     for (int i = 0; i < HEADER_LENGTH; ++i)
     {
         std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(header_buffer_[i]) << " ";
     }
-    std::cout << "User id: " << user_id_ << std::endl;
-    std::cout << "Version: " << static_cast<int>(version_) << std::endl;
-    std::cout << "Op code: " << static_cast<int>(op_) << std::endl;
-    std::cout << "Name length: " << name_len_ << std::endl;
-    std::cout << "Filename: " << filename_ << std::endl;
+    std::cout << std::endl;
+
+    // Extract fields from header
+    user_id_ = ntohl(*reinterpret_cast<uint32_t *>(&header_buffer_[0]));
+    version_ = header_buffer_[4];
+    op_ = header_buffer_[5];
+    name_len_ = ntohs(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
+
+    // user_id_ = boost::asio::buffer_cast<const uint32_t *>(boost::asio::buffer(header_buffer_, sizeof(uint32_t)))[0];
+
+
+
+
+
+
+    // name_len_ = boost::asio::buffer_cast<const uint16_t *>(boost::asio::buffer(header_buffer_ + 6, sizeof(uint16_t)))[0];
+
+    std::cout << "user_id_: " << user_id_ << std::endl;
+    std::cout << "version_: " << static_cast<int>(version_) << std::endl;
+    std::cout << "op_: " << static_cast<int>(op_) << std::endl;
+    std::cout << "name_len_: " << name_len_ << std::endl;
+
+    // If op is not get file list copy filename from header and add null terminator
+    if (op_ != OP_GET_FILE_LIST)
+    {
+        std::cout << "inside op_ != OP_GET_FILE_LIST" << std::endl;
+        startReadFilename();
+        filename_.push_back('\0');
+    }
+
 
     if (op_ != OP_SAVE_FILE && op_ != OP_RESTORE_FILE && op_ != OP_DELETE_FILE && op_ != OP_GET_FILE_LIST)
     {
-        std::cerr << "Invalid OP code received." << std::endl;
-        return false; // indicate failure to parse header
+        throw std::runtime_error ("Invalid OP code received.");
     }
 
     return true;
@@ -128,12 +218,12 @@ void Message::pack_response(Status status, std::vector<char> &responseBuffer)
         responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
     }
 
-    uint8_t Message::get_op_code() const
+    const uint8_t Message::get_op_code() const
     {
         return op_;
     }
 
-    uint16_t Message::get_name_length() const
+    const uint16_t Message::get_name_length() const
     {
         return name_len_;
     }
@@ -143,12 +233,13 @@ void Message::pack_response(Status status, std::vector<char> &responseBuffer)
         return filename_;
     }
 
-    char *Message::get_header_buffer()
+    const std::string &Message::get_header_buffer() const
     {
-        return header_buffer_;
+        static const std::string header(header_buffer_, HEADER_LENGTH);
+        return header;
     }
 
-    uint32_t Message::get_file_size() const
+    const uint32_t Message::get_file_size() const
     {
         return file_size_;
     }
@@ -171,7 +262,16 @@ void Message::pack_response(Status status, std::vector<char> &responseBuffer)
 
     void Message::set_header_buffer(const char *buffer)
     {
-        std::copy(buffer, buffer + HEADER_LENGTH, header_buffer_);
+        std::cout << "inside set_header_buffer" << std::endl;
+        std::cout << "buffer: " << buffer << std::endl;
+        for (int i = 0; i < 8; i++)
+        {
+            std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
+        }
+        std::copy(buffer, buffer + 8, header_buffer_);
+        std::cout << "after copy" << std::endl;
+        std::cout << "header_buffer_ " << header_buffer_ << std::endl;
+        header_buffer_[HEADER_LENGTH] = {0}; // Initialize all elements to zero
     }
 
     void Message::set_filename(const std::string &filename)
@@ -179,4 +279,6 @@ void Message::pack_response(Status status, std::vector<char> &responseBuffer)
         filename_ = filename;
         name_len_ = filename_.length();
     }
+
+
 // ... other method implementations ...

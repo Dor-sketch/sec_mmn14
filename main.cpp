@@ -43,12 +43,13 @@ const std::string Server::folder_path_ = "backupsvr";
 
 int main()
 {
+    std::cout << "Starting server..." << std::endl;
     try
     {
         boost::asio::io_context io_context;
 
         // Create and start the server
-        Server server(io_context, 12345); // Listening on port 12345
+        Server server(io_context, 1234); // Listening on port 12345
 
         // Run the io_context to start the server's I/O operations
         io_context.run();

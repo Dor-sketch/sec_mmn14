@@ -1,6 +1,6 @@
 # Compiler options
 CXX = g++
-CXXFLAGS = -std=c++11 -Wall -Wextra -pedantic -I$(BOOST_INCLUDE)
+CXXFLAGS = -std=c++11 -Wall -Wextra -pedantic -g -I$(BOOST_INCLUDE)  # Added -g here
 LDFLAGS = -L$(BOOST_LIB)
 
 # Boost library options

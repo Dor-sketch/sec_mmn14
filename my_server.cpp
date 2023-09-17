@@ -214,36 +214,36 @@ private:
         );
     }
 
-    bool parse_fixed_header()
-    {
-        std::cout << "inside parse_header" << std::endl;
-        // Extract fields from header
-        user_id_ = *reinterpret_cast<uint32_t *>(header_); // Assuming little endian
-        version_ = header_[4];
-        op_ = header_[5];
-        name_len_ = *reinterpret_cast<uint16_t *>(header_ + 6); // little endian
+    // bool parse_fixed_header()
+    // {
+    //     std::cout << "inside parse_header" << std::endl;
+    //     // Extract fields from header
+    //     user_id_ = *reinterpret_cast<uint32_t *>(header_); // Assuming little endian
+    //     version_ = header_[4];
+    //     op_ = header_[5];
+    //     name_len_ = *reinterpret_cast<uint16_t *>(header_ + 6); // little endian
 
-        // if op is not get file list copy filename from header and add null terminator
-        if(op_ != OP_GET_FILE_LIST) {
-            do_read_dynamicsize(name_len_, &filename_);
-            filename_.push_back('\0');
-            std::cout << "Filename: " << filename_ << std::endl;
-        }
+    //     // if op is not get file list copy filename from header and add null terminator
+    //     if(op_ != OP_GET_FILE_LIST) {
+    //         do_read_dynamicsize(name_len_, &filename_);
+    //         filename_.push_back('\0');
+    //         std::cout << "Filename: " << filename_ << std::endl;
+    //     }
 
-        // Set backup directory
-        backup_dir_ = folder_path_ + "/" + std::to_string(user_id_);
-        for (int i = 0; i < HEADER_LENGTH; ++i)
-        {
-            std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(header_[i]) << " ";
-        }
-        std::cout << "User id: " << user_id_ << std::endl;
-        std::cout << "Version: " << static_cast<int>(version_) << std::endl;
-        std::cout << "Op code: " << static_cast<int>(op_) << std::endl;
-        std::cout << "Name length: " << name_len_ << std::endl;
-        std::cout << "Filename: " << filename_ << std::endl;
-        std::cout << "Backup directory: " << backup_dir_ << std::endl;
-        return true;
-    }
+    //     // Set backup directory
+    //     backup_dir_ = folder_path_ + "/" + std::to_string(user_id_);
+    //     for (int i = 0; i < HEADER_LENGTH; ++i)
+    //     {
+    //         std::cout << std::hex << std::setw(2) << std::setfill('0') << static_cast<int>(header_[i]) << " ";
+    //     }
+    //     std::cout << "User id: " << user_id_ << std::endl;
+    //     std::cout << "Version: " << static_cast<int>(version_) << std::endl;
+    //     std::cout << "Op code: " << static_cast<int>(op_) << std::endl;
+    //     std::cout << "Name length: " << name_len_ << std::endl;
+    //     std::cout << "Filename: " << filename_ << std::endl;
+    //     std::cout << "Backup directory: " << backup_dir_ << std::endl;
+    //     return true;
+    // }
 
     void pack_response()
     {

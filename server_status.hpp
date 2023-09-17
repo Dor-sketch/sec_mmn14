@@ -1,3 +1,6 @@
+// server_status.hpp
+#ifndef SERVER_STATUS_HPP
+#define SERVER_STATUS_HPP
 #include <cstdint>
 
 enum class Status : uint16_t
@@ -9,3 +12,5 @@ enum class Status : uint16_t
     FAILURE = 1003,        // general error status
     PROCESSING = 1         // default status, still processing request - for inner use
 };
+
+#endif // SERVER_STATUS_HPP
