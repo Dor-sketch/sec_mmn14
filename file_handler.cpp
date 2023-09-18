@@ -1,3 +1,6 @@
+// Description: This file contains the implementation of the FileHandler class.
+//              it is used to handle the file operations and pack the response
+
 #include "file_handler.hpp"
 #include <fstream>
 #include <iostream>
@@ -24,11 +27,10 @@ std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &fi
     std::string user_id_str = std::to_string(user_id);
     std::string dir_path = folder_path_ + "/" + user_id_str;
     std::string file_name_str = filename;
-
-    std::cout << file_name_str << std::endl;
     std::string full_path = dir_path + "/" + file_name_str;
 
-    std::cout << "Saving file to: " << full_path << '\n';
+    // std::cout << file_name_str << std::endl;
+    // std::cout << "Saving file to: " << full_path << '\n';
     
     // Check and create directory if it doesn't exist
     if (!boost::filesystem::exists(dir_path))
@@ -40,7 +42,7 @@ std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &fi
         }
     }
 
-    std::ofstream ofs(full_path, std::ios::binary); // Consider if you really need binary mode here
+    std::ofstream ofs(full_path, std::ios::binary); 
 
     if (!ofs)
     {
@@ -63,19 +65,12 @@ std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &fi
 
 
 
-
-
-
-
-
-
-
 std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string &filename)
 {
     std::string user_id_str = std::to_string(user_id);
     std::string dir_path = folder_path_ + "/" + user_id_str;
     std::string file_name_str = filename;
-    std::cout << file_name_str << std::endl;
+    // std::cout << file_name_str << std::endl;
     std::string full_path = dir_path + "/" + file_name_str;
 
     std::ifstream ifs(full_path, std::ios::binary);
@@ -83,7 +78,7 @@ std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string 
     if (!ifs)
     {
         // Error opening file for reading
-        return pack_response(Status::FAILURE,
+        return pack_response(Status::ERROR_FILE_NOT_FOUND,
                              OP_RESTORE_FILE, file_name_str); // or throw an exception or return an error status
     }
 
@@ -93,8 +88,6 @@ std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string 
 
     return pack_response(Status::SUCCESS_RESTORE, OP_RESTORE_FILE, file_name_str);
 }
-
-
 
 
 std::vector<char> FileHandler::delete_file(uint32_t user_id, const std::string &filename)
@@ -111,25 +104,17 @@ std::vector<char> FileHandler::delete_file(uint32_t user_id, const std::string &
     }
     else
     {
-        std::cout << "File deleted successfully" << '\n';
+        // std::cout << "File deleted successfully" << '\n';
     }
 
-    // no success status is defined in the protocol, so we use SUCCESS_SAVE
-    pack_response(Status::SUCCESS_DELETE, OP_DELETE_FILE, file_name_str);
+    // no success status is defined in the protocol, so we use SUCCESS_DELETE
+    return pack_response(Status::SUCCESS_DELETE, OP_DELETE_FILE, file_name_str);
 }
-
-
-
-
-
-
-
-
 
 
 std::vector<char> FileHandler::get_file_list(uint32_t user_id)
 {
-    printf("inside get_file_list\n\n\n");
+    // printf("inside get_file_list\n\n\n");
     std::string user_id_str = std::to_string(user_id);
     std::string dir_path = folder_path_ + "/" + user_id_str;
 
@@ -159,20 +144,14 @@ std::vector<char> FileHandler::get_file_list(uint32_t user_id)
     {
         filename = file_list_.front();
     }
-    std::cout << "file list: " << std::endl;
-    for (const auto &file : file_list_)
-    {
-        std::cout << file << std::endl;
-    }
+    // std::cout << "file list: " << std::endl;
+    // for (const auto &file : file_list_)
+    // {
+    //     std::cout << file << std::endl;
+    // }
     return pack_response(Status::SUCCESS_FILE_LIST,
         OP_GET_FILE_LIST, filename);
 }
-
-
-
-
-
-
 
 
 std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
@@ -193,12 +172,8 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
         {
             // Set response fields
             name_len = filename.length();
-
-            std::cout << "name size: " << name_len << std::endl;
+            // std::cout << "name size: " << name_len << std::endl;
             payload_size = 0;
-
-            
-
             // no payload for save file
         }
         break;
@@ -224,12 +199,9 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
     case OP_DELETE_FILE:
         if (status == Status::SUCCESS_DELETE)
         {
-            // Set response fields
-            // payload = algorithm::join(file_list_, "\n");
-            payload_size = payload.length();
-
-            // Pack response
-            payload.insert(0, reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
+            name_len = 0;
+            payload_size = 0;
+           
         }
         break;
 
@@ -238,7 +210,7 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
         {
             // Set response fields
             // payload = algorithm::join(file_list_, "\n");
-            name_len = filename_.length(); // filename_ is empty
+            name_len = 0; // filename_ is empty
             payload_size = 0;
             status_code = static_cast<uint16_t>(Status::ERROR_NO_FILES);
         }
@@ -256,8 +228,8 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
                 payload.append(file);
                 payload.append("\n");
             }
-            std::cout << "payload: " << payload << std::endl;
-            std::cout << "payload size: " << payload_size << std::endl;
+            // std::cout << "payload: " << payload << std::endl;
+            // std::cout << "payload size: " << payload_size << std::endl;
         }
         else
         {
@@ -267,8 +239,6 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
 
         }
     }
-
-
 
     // =====================================
     // Packing the response header
@@ -293,7 +263,9 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
     // Packing the payload data
     responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
 
-
+    // for (const auto &byte : responseBuffer)
+    // {
+    //     std::cout << std::hex << static_cast<int>(byte) << " ";
+    // }
     return responseBuffer;
 }
-

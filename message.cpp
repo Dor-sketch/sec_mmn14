@@ -18,7 +18,6 @@ Message::Message()
       user_id_{0},
       file_size_{0},
       file_contents_{""},
-      file_list_{},
       buffer_{},
       filename_{""},
       io_context_(),
@@ -35,7 +34,6 @@ Message::Message(std::vector<char> &requestBuffer,
       user_id_{0},
       file_size_{0},
       file_contents_{""},
-      file_list_{},
       buffer_(std::move(requestBuffer)),
       filename_{""},
       socket_(std::move(socket))
@@ -57,11 +55,11 @@ bool Message::parse_fixed_header()
     op_ = header_buffer_[5];
     name_len_ = *reinterpret_cast<uint16_t *>(&header_buffer_[6]);
 
-    std::cout << "request header fields after parsing: " << std::endl;
-    std::cout << "user id string is: " << std::to_string(user_id_) << std::endl;
-    std::cout << "version_ cast to int: " << static_cast<int>(version_) << std::endl;
-    std::cout << "std::to_string(op_): " << std::to_string(op_) << std::endl;
-    std::cout << "name_len_ in decimal: " << std::dec << name_len_ << std::endl;
+    // std::cout << "request header fields after parsing: " << std::endl;
+    // std::cout << "user id string is: " << std::to_string(user_id_) << std::endl;
+    // std::cout << "version_ cast to int: " << static_cast<int>(version_) << std::endl;
+    // std::cout << "std::to_string(op_): " << std::to_string(op_) << std::endl;
+    // std::cout << "name_len_ in decimal: " << std::dec << name_len_ << std::endl;
 
     // std::cout << "name_len_: " << name_len_ << std::endl;
     // name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
@@ -100,10 +98,6 @@ std::string Message::get_header_buffer() const
     return std::string(header_buffer_, HEADER_LENGTH);
 }
 
-const std::vector<std::string> &Message::get_file_list() const {
-    return file_list_;
-}
-
 const std::string &Message::get_file_content() const {
     return file_contents_;
 }
@@ -111,12 +105,12 @@ const std::string &Message::get_file_content() const {
 
 // setters
 void Message::set_file_content() {
-    std::cout << "inside set_file_content" << std::endl;
-    for (const auto &byte : file_contents_)
-    {
-        std::cout << std::hex << static_cast<int>(byte) << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "inside set_file_content" << std::endl;
+    // for (const auto &byte : file_contents_)
+    // {
+    //     std::cout << std::hex << static_cast<int>(byte) << " ";
+    // }
+    // std::cout << std::endl;
 
     if (op_ != OP_SAVE_FILE)
     {
@@ -138,7 +132,6 @@ void Message::set_file_content() {
 
     std::string str(reinterpret_cast<const char *>(file_contents_.data()), file_contents_.size());
     // std::cout << "\n\nfile_contents_ set to string: " << file_contents_ << std::endl;
-
     // for (const auto &byte : file_contents_)
     // {
     //     std::cout << static_cast<int>(byte) << " ";
@@ -149,20 +142,18 @@ void Message::set_file_content() {
 }
 
 
-void Message::set_file_list(const std::vector<std::string> &file_list) {
-    file_list_ = file_list;
-}
+
 
 void Message::set_header_buffer(const char *buffer) {
-    std::cout << "inside set_header_buffer" << std::endl;
-    std::cout << "buffer: " << buffer << std::endl;
-    for (int i = 0; i < 8; i++)
-    {
-        std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
-    }
+    // std::cout << "inside set_header_buffer" << std::endl;
+    // std::cout << "buffer: " << buffer << std::endl;
+    // for (int i = 0; i < 8; i++)
+    // {
+    //     std::cout << std::hex << std::setw(2) << std::setfill('0') << (int)buffer[i] << " ";
+    // }
     std::copy(buffer, buffer + 8, header_buffer_);
-    std::cout << "after copy" << std::endl;
-    std::cout << "header_buffer_ " << header_buffer_ << std::endl;
+    // std::cout << "after copy" << std::endl;
+    // std::cout << "header_buffer_ " << header_buffer_ << std::endl;
     header_buffer_[HEADER_LENGTH] = {0}; // Initialize all elements to zero
 }
 
@@ -178,7 +169,7 @@ void Message::set_filename() {
     }
     
     filename_ = std::string(buffer_.data(), name_len_);
-    std::cout << "filename_ was set: " << filename_ << std::endl;
+    // std::cout << "filename_ was set: " << filename_ << std::endl;
     // buffer_.clear();
     // std::cout << "buffer_ was cleared" << std::endl;
 
@@ -200,7 +191,7 @@ uint32_t Message::get_user_id() const
 void Message::set_file_size() {
     //convert the buffer from little endian bytes to integer
     file_size_ = le32toh(*reinterpret_cast<uint32_t *>(&file_size_buffer_[0]));
-    printf("file_size_ was set: %d\n", file_size_);
+    // printf("file_size_ was set: %d\n", file_size_);
 }
 
 // std::string Message::get_file_size_buffer() const {

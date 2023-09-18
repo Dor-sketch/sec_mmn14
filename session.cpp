@@ -13,8 +13,8 @@ Session::Session(asio::basic_stream_socket<asio::ip::tcp> socket,
 
 void Session::start()
 {
-    std::cout << "----------------------------------------" << std::endl;
-    std::cout << "Session started" << std::endl;
+
+    std::cout << "start processing request...";
     do_read_header();
 }
 
@@ -25,10 +25,15 @@ void Session::do_read_header()
     asio::async_read
             (socket_,
              asio::buffer(header_buffer_, Message::HEADER_LENGTH),
-             [this, self](boost::system::error_code ec, std::size_t /*length*/)
+             [this, self](boost::system::error_code ec, std::size_t length)
              {
                 if (!ec) 
                 {
+                    if (length != Message::HEADER_LENGTH) 
+                    {
+                        std::cerr << "Unexpected number of bytes read!" 
+                            << std::endl;
+                    }
                     message_.set_header_buffer(header_buffer_);
                     if(message_.parse_fixed_header()) 
                     {                                             
@@ -91,6 +96,7 @@ void Session::do_read_filename()
                 {
                     // start by getting file size from payload
                     do_read_fileSize();
+                    return;
                 }
                 else if (message_.get_op_code() == OP_RESTORE_FILE)
                 {
@@ -102,17 +108,18 @@ void Session::do_read_filename()
                     // Send the response to the client
                     send_response(std::string(response_buf.begin(),
                                               response_buf.end()));
+                    return;
                 }
                 else if (message_.get_op_code() == OP_DELETE_FILE)
                 {
                     // delete file from file_handler_
-                    std::vector<char> response_buf =
+                    std::vector<char> response_buf2 =
                         file_handler_.delete_file(message_.get_user_id(),
                                                    message_.get_filename());
 
-                    // Send the response to the client
-                    send_response(std::string(response_buf.begin(),
-                                              response_buf.end()));
+                    send_response(std::string(response_buf2.begin(),
+                                              response_buf2.end()));
+                    return;
                 }
                 else
                 {
@@ -138,6 +145,11 @@ void Session::do_read_fileSize()
         {
             if (!ec) 
             {
+                if (length != Message::FILE_SIZE_BUFFER_LENGTH) 
+                {
+                    std::cerr << "Unexpected number of bytes read!" 
+                            << std::endl;
+                }
                 message_.set_file_size();
                 // ready to read file content
                 do_read_payload();
@@ -161,7 +173,7 @@ void Session::do_read_payload()
     // Create an iterator to point to the start of where the file content should be
     auto it = message_.get_buffer().begin() + message_.get_name_length();
     
-    std::cout << "inside do_read_payload" << std::endl;
+    // std::cout << "inside do_read_payload" << std::endl;
     asio::async_read
         (socket_,
          asio::buffer(&(*it), message_.get_file_size()),
@@ -198,7 +210,6 @@ void Session::do_read_payload()
 
 void Session::send_response(const std::string &responseBuffer)
 {
-    // std::cout << "inside send_response" << std::endl;
     // std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
     // for (const auto &byte : responseBuffer)
     // {
@@ -206,26 +217,31 @@ void Session::send_response(const std::string &responseBuffer)
     // }
     // std::cout << std::endl;
     asio::write(socket_, asio::buffer(responseBuffer));
-    std::cout << "response sent" << std::endl;
+    // std::cout << "response sent" << std::endl;
     graceful_close();
 
 }
 
 void Session:: graceful_close()
 {
-    try
-    {
-        // Signal that we won't send any more data.
-        socket_.shutdown(asio::ip::tcp::socket::shutdown_send);
+    // try
+    // {
+    //     // Signal that we won't send any more data.
+    //     socket_.shutdown(asio::ip::tcp::socket::shutdown_send);
+    // }
+    // catch (const std::exception &e)
+    // {
+    //     std::cerr << "Shutdown error: " << e.what() << std::endl;
+    // }
+
+    // Close the socket.
+    sleep(0.5);
+    try {
+        socket_.close();
     }
     catch (const std::exception &e)
     {
-        std::cerr << "Shutdown error: " << e.what() << std::endl;
+        std::cerr << "Close error: " << e.what() << std::endl;
     }
-
-    // Close the socket.
-    sleep(1);
-    socket_.close();
-    std::cout << "Socket closed." << std::endl;
-    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "done. socket was closed." << std::endl;
 }
