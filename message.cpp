@@ -46,39 +46,26 @@ Message::Message(std::vector<char> &requestBuffer,
 
 bool Message::parse_fixed_header()
 {
-    for (int i = 0; i < HEADER_LENGTH; ++i)
-    {
-        std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(header_buffer_[i]) << " ";
-    }
-    std::cout << std::endl;
+    // for (int i = 0; i < HEADER_LENGTH; ++i)
+    // {
+    //     std::cout << std::setw(2) << std::setfill('0') << std::hex << static_cast<int>(header_buffer_[i]) << " ";
+    // }
+    // std::cout << std::endl;
 
-    std::cout << "inside parse_header" << std::endl;
     user_id_ = *reinterpret_cast<uint32_t *>(&header_buffer_[0]);
-    std::cout << "user_id_ (bytes): " << user_id_ << std::endl;
-    std::cout << "user id string is: " << std::to_string(user_id_) << std::endl;
-    
-    
     version_ = header_buffer_[4];
-    std::cout << "version_: " << version_ << std::endl;
-    std::cout << "version_ cast to int: " << static_cast<int>(version_) << std::endl;
-    
     op_ = header_buffer_[5];
-    std::cout << "op_: " << op_ << std::endl;
-    std::cout << "static_cast<int>(op_): " << static_cast<int>(op_) << std::endl;
-    std::cout << "std::to_string(op_): " << std::to_string(op_) << std::endl;
-    std::cout << "op_ Memory value: " << std::hex << +op_ << std::endl;
-
-    uint8_t testOp = 100;
-    std::cout << "Direct testOp: " << testOp << std::endl;
-    std::cout << "Direct static_cast<int>(testOp): " << static_cast<int>(testOp) << std::endl;
-    std::cout << "Direct std::to_string(testOp): " << std::to_string(testOp) << std::endl;
-
     name_len_ = *reinterpret_cast<uint16_t *>(&header_buffer_[6]);
-    std::cout << "name_len_: " << name_len_ << std::endl;
-    name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
-    std::cout << "name_len_ after le16toh: " << name_len_ << std::endl;
 
-    printf("finish parse\n\n\n");
+    std::cout << "request header fields after parsing: " << std::endl;
+    std::cout << "user id string is: " << std::to_string(user_id_) << std::endl;
+    std::cout << "version_ cast to int: " << static_cast<int>(version_) << std::endl;
+    std::cout << "std::to_string(op_): " << std::to_string(op_) << std::endl;
+    std::cout << "name_len_ in decimal: " << std::dec << name_len_ << std::endl;
+
+    // std::cout << "name_len_: " << name_len_ << std::endl;
+    // name_len_ = le16toh(*reinterpret_cast<uint16_t *>(&header_buffer_[6]));
+    // std::cout << "name_len_ after le16toh: " << name_len_ << std::endl;
 
     if (op_ != OP_SAVE_FILE && op_ != OP_RESTORE_FILE && op_ != OP_DELETE_FILE && op_ != OP_GET_FILE_LIST)
     {
@@ -143,20 +130,20 @@ void Message::set_file_content() {
 
     // file_contents_ = std::string(buffer_.data()+name_len_, file_size_);
     std::copy(buffer_.begin() + name_len_, buffer_.begin() + name_len_ + file_size_, std::back_inserter(file_contents_));
-    std::cout << "file_contents_ set: " << file_contents_ << std::endl;
-    for (const auto &byte : file_contents_)
-    {
-        std::cout << static_cast<int>(byte) << " ";
-    }
+    // std::cout << "file_contents_ set: " << file_contents_ << std::endl;
+    // for (const auto &byte : file_contents_)
+    // {
+    //     std::cout << static_cast<int>(byte) << " ";
+    // }
 
     std::string str(reinterpret_cast<const char *>(file_contents_.data()), file_contents_.size());
-    std::cout << "\n\nfile_contents_ set to string: " << file_contents_ << std::endl;
+    // std::cout << "\n\nfile_contents_ set to string: " << file_contents_ << std::endl;
 
-    for (const auto &byte : file_contents_)
-    {
-        std::cout << static_cast<int>(byte) << " ";
-    }
-    std::cout << std::endl;
+    // for (const auto &byte : file_contents_)
+    // {
+    //     std::cout << static_cast<int>(byte) << " ";
+    // }
+    // std::cout << std::endl;
 
     buffer_.clear();
 }

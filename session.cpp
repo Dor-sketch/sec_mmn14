@@ -13,6 +13,8 @@ Session::Session(asio::basic_stream_socket<asio::ip::tcp> socket,
 
 void Session::start()
 {
+    std::cout << "----------------------------------------" << std::endl;
+    std::cout << "Session started" << std::endl;
     do_read_header();
 }
 
@@ -196,13 +198,13 @@ void Session::do_read_payload()
 
 void Session::send_response(const std::string &responseBuffer)
 {
-    std::cout << "inside send_response" << std::endl;
-    std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
-    for (const auto &byte : responseBuffer)
-    {
-        std::cout << std::hex << static_cast<int>(byte) << " ";
-    }
-    std::cout << std::endl;
+    // std::cout << "inside send_response" << std::endl;
+    // std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
+    // for (const auto &byte : responseBuffer)
+    // {
+    //     std::cout << std::hex << static_cast<int>(byte) << " ";
+    // }
+    // std::cout << std::endl;
     asio::write(socket_, asio::buffer(responseBuffer));
     std::cout << "response sent" << std::endl;
     graceful_close();
@@ -222,7 +224,8 @@ void Session:: graceful_close()
     }
 
     // Close the socket.
-    sleep(5);
+    sleep(1);
     socket_.close();
     std::cout << "Socket closed." << std::endl;
+    std::cout << "----------------------------------------" << std::endl;
 }
