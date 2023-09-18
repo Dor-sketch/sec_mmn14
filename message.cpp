@@ -19,27 +19,8 @@ Message::Message()
       file_size_{0},
       file_contents_{""},
       buffer_{},
-      filename_{""},
-      io_context_(),
-      socket_(io_context_)
-{
-}
-
-Message::Message(std::vector<char> &requestBuffer,
-                boost::asio::ip::tcp::socket &socket)
-    : header_buffer_{},
-      version_{0},
-      op_{0},
-      name_len_{0},
-      user_id_{0},
-      file_size_{0},
-      file_contents_{""},
-      buffer_(std::move(requestBuffer)),
-      filename_{""},
-      socket_(std::move(socket))
-{
-}
-
+      filename_{""}
+{}
 
 
 bool Message::parse_fixed_header()

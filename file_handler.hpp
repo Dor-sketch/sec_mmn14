@@ -1,7 +1,6 @@
 #pragma once
 
 #include "server_status.hpp"
-
 #include <string>
 #include <vector>
 #include <algorithm>

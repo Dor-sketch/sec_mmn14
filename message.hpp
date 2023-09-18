@@ -1,11 +1,12 @@
 #ifndef MESSAGE_HPP
 #define MESSAGE_HPP
+
 #include <cstdint>
 #include <string>
 #include <vector>
 #include <algorithm>
 #include <boost/filesystem.hpp>
-#include <boost/asio.hpp> // <-- Add this line
+#include <boost/asio.hpp>
 #include "server_status.hpp"
 
 // The message class is used to parse the request and to pack and to store
@@ -14,8 +15,6 @@ class Message : public std::enable_shared_from_this<Message>
 {
 public:
     Message();
-    Message(std::vector<char> & requestBuffer,
-            boost::asio::ip::tcp::socket &socket);
 
     enum { HEADER_LENGTH = 8 }; // without filename
     enum { FILE_SIZE_BUFFER_LENGTH = 4 };
@@ -31,8 +30,7 @@ private:
     std::string file_contents_;
     std::vector<char> buffer_; // to store big messages and inteact with asio
     std::string filename_;
-    boost::asio::io_context io_context_; 
-    boost::asio::ip::tcp::socket socket_;
+
 
 public:
     // getters
