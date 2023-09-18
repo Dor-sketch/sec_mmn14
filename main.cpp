@@ -1,6 +1,8 @@
 // Description: Main file for the server. It creates the server and starts it.
 
 #include "session.hpp"
+#include <fstream>
+
 #include <iostream>
 #include <boost/asio.hpp>
 

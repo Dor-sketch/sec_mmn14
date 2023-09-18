@@ -10,6 +10,8 @@
 #include <boost/algorithm/string.hpp>
 #include <string>
 
+
+
 Message::Message()
     : header_buffer_{},
       version_{0},
@@ -135,7 +137,7 @@ void Message::set_header_buffer(const char *buffer) {
     std::copy(buffer, buffer + 8, header_buffer_);
     // std::cout << "after copy" << std::endl;
     // std::cout << "header_buffer_ " << header_buffer_ << std::endl;
-    header_buffer_[HEADER_LENGTH] = {0}; // Initialize all elements to zero
+    header_buffer_[HEADER_LENGTH] = {0}; // avoid buffer overflow
 }
 
 void Message::set_filename() {
@@ -171,7 +173,7 @@ uint32_t Message::get_user_id() const
 
 void Message::set_file_size() {
     //convert the buffer from little endian bytes to integer
-    file_size_ = le32toh(*reinterpret_cast<uint32_t *>(&file_size_buffer_[0]));
+    file_size_ = (*reinterpret_cast<uint32_t *>(&file_size_buffer_[0]));
     // printf("file_size_ was set: %d\n", file_size_);
 }
 

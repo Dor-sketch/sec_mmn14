@@ -165,6 +165,7 @@ void Session::do_read_fileSize()
 
 void Session::do_read_payload()
 {
+
     auto self(shared_from_this());
 
     // Resize the buffer to hold the name and the file content
@@ -172,70 +173,52 @@ void Session::do_read_payload()
 
     // Create an iterator to point to the start of where the file content should be
     auto it = message_.get_buffer().begin() + message_.get_name_length();
-    
-    // std::cout << "inside do_read_payload" << std::endl;
-    asio::async_read
-        (socket_,
-         asio::buffer(&(*it), message_.get_file_size()),
-         [this, self](boost::system::error_code ec, std::size_t length)
-         {
-            if (!ec)
-            {
-                if (length != message_.get_file_size()) 
-                {
-                    std::cerr << "Unexpected number of bytes read!" << std::endl;
-                }
 
-                // store file content in file_contents_
-                message_.set_file_content();
-                std::vector<char> response_buf 
-                    = file_handler_.save_file(message_.get_user_id()
-                                              ,message_.get_filename()
-                                              ,message_.get_file_content()
-                                             );
+    asio::async_read(socket_,
+                     asio::buffer(&(*it), message_.get_file_size()),
+                     [this, self](boost::system::error_code ec, std::size_t length)
+                     {
+                         if (!ec)
+                         {
+                             if (length != message_.get_file_size())
+                             {
+                                 std::cerr << "Unexpected number of bytes read!" << std::endl;
+                             }
 
-                // Send the response to the client
-                send_response(std::string(response_buf.begin(),
-                    response_buf.end()));          
-            }
-            else
-            {
-                std::cerr << "Error reading from socket: " << ec.message() << std::endl;
-            }
-         }
-        );
+                             // store file content in file_contents_
+                             message_.set_file_content();
+
+                             std::vector<char> response_buf = file_handler_.save_file(message_.get_user_id(), message_.get_filename(), message_.get_file_content());
+
+                             // Send the response to the client
+                             send_response(std::string(response_buf.begin(),
+                                                       response_buf.end()));
+
+                             return;
+                         }
+                         else
+                         {
+                             std::cerr << "Error reading from socket: " << ec.message() << std::endl;
+                         }
+                     });
 }
-
 
 
 void Session::send_response(const std::string &responseBuffer)
 {
-    // std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
     // for (const auto &byte : responseBuffer)
     // {
     //     std::cout << std::hex << static_cast<int>(byte) << " ";
     // }
     // std::cout << std::endl;
     asio::write(socket_, asio::buffer(responseBuffer));
-    // std::cout << "response sent" << std::endl;
+    std::cout << "response sent" << std::endl;
     graceful_close();
-
 }
 
 void Session:: graceful_close()
 {
-    // try
-    // {
-    //     // Signal that we won't send any more data.
-    //     socket_.shutdown(asio::ip::tcp::socket::shutdown_send);
-    // }
-    // catch (const std::exception &e)
-    // {
-    //     std::cerr << "Shutdown error: " << e.what() << std::endl;
-    // }
-
-    // Close the socket.
-    sleep(0.5);
+    sleep(1); // to make sure the client has time to read the response
     try {
         socket_.close();
     }

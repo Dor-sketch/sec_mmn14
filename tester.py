@@ -18,6 +18,8 @@ STATUS_FILE_DELETED = 213 # same as above
 STATUS_FILE_NOT_FOUND = 1001
 STATUS_NO_FILES_FOUND = 1002
 FAILURE = 1003 
+import time
+
 
 
 # pack the message into bytes according to the protocol
@@ -25,6 +27,13 @@ def create_message(user_id, version, op, filename, file_contents=b''):
     FIXED_FORMAT = '<I B B H'  # user_id, version, op, name_len
     NAME_FORMAT = '{}s'.format(len(filename))
     PAYLOAD_FORMAT = '{}s'.format(len(file_contents))
+
+    # print("user_id:", user_id)
+    # print("version:", version)
+    # print("op:", op)
+    # print("filename:", filename)
+    # print("len(filename):", len(filename))
+    # print("file_contents(len):", len(file_contents))
 
     message = struct.pack(FIXED_FORMAT, user_id, version, op, len(filename))
     message += struct.pack(NAME_FORMAT, filename)
@@ -53,14 +62,10 @@ def receive_response(sock):
 
     fixed_response_format = '<BHH' # version, status, name_len
     response_header = recvall(sock, struct.calcsize(fixed_response_format))
-    # print("response_header in bytes:", bytes(response_header).hex())
 
     version, status, name_len = struct.unpack(fixed_response_format,\
         response_header)
 
-    print("version:", version)
-    print("status:", status)
-    print("name_len:", name_len)
 
     # no more data in those cases - dont need to read more
     if status in [STATUS_NO_FILES_FOUND,\
@@ -91,21 +96,18 @@ def send_nd_recieve(message, server_address, server_port):
     # print("Sending message:", message.hex())
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        
         try:
             # Connect to the server
             sock.connect((server_address, server_port))
-
             # Send the message to the server
             sock.sendall(message)
-        
             # Receive the response 
             version, status, filename1, payload = receive_response(sock)
-            print('Version:', version)
-            print('Status:', status)
-            print('Filename:', filename1)
             # print('Payload:', payload)
 
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            return
         except ConnectionResetError:
             print("Connection reset by peer")
             return
@@ -115,6 +117,7 @@ def send_nd_recieve(message, server_address, server_port):
         except ConnectionRefusedError:
             print("Connection refused")
             return
+
     print()
 
     if (status == STATUS_FILE_RESTORED):
@@ -187,13 +190,13 @@ def main():
     filename1 = filenames[0].encode()
     filename2 = filenames[1].encode()
 
-    # ===========================================================
-    # (4) msg server to get file list
-    #     (should respond with STATUS_NO_FILES_FOUND)
+    # # ===========================================================
+    # # (4) msg server to get file list
+    # #     (should respond with STATUS_NO_FILES_FOUND)
     print("=========================================================")
     print("4. Sending message to get file list")
     message_get_list = create_message(random_id, VERSION, OP_LIST,\
-        filename1, file_contents1)
+        filename1)
     send_nd_recieve(message_get_list, server_address, server_port)
 
     # # ===========================================================
@@ -206,18 +209,18 @@ def main():
         filename1, file_contents1)
     send_nd_recieve(message, server_address, server_port)
 
-    # ===========================================================
-    # (6) msg server to save the second file from backup.info
-    #   (should respond with STATUS_FILE_SAVED)
+    # # ===========================================================
+    # # (6) msg server to save the second file from backup.info
+    # #   (should respond with STATUS_FILE_SAVED)
     print("=========================================================")
     print("6. Sending message to save the second file")
     message = create_message(random_id, VERSION, OP_SAVE,\
         filename2, file_contents2)
     send_nd_recieve(message, server_address, server_port)
 
-    # ===========================================================
-    # (7) msg server to get file list again
-    #     (should respond STATUS_LIST_OK and list of files)
+    # # ===========================================================
+    # # (7) msg server to get file list again
+    # #     (should respond STATUS_LIST_OK and list of files)
     print("=========================================================")
     print("7. Sending message to get file list")
     send_nd_recieve(message_get_list, server_address, server_port)
@@ -241,17 +244,17 @@ def main():
         filename1)
     send_nd_recieve(message, server_address, server_port)
 
-    # ===========================================================
-    # (10) msg server to restore the first file from backup.info
-    #      (should fail)
+    # # ===========================================================
+    # # (10) msg server to restore the first file from backup.info
+    # #      (should fail)
     print("10. =========================================================")
     print("Sending message to restore the first file (should fail)")
     message = create_message(random_id, VERSION, OP_RESTORE,\
         filename1)
     send_nd_recieve(message, server_address, server_port)
 
-    # ===========================================================
-    # (11) quitting the client
+    # # ===========================================================
+    # # (11) quitting the client
     print("11. =========================================================")
     print("Quitting the client")
 
