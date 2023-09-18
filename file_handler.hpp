@@ -32,5 +32,5 @@ public:
                             const std::string &filename);
                             
 private:
-    std::vector<char> pack_response(Status status, uint8_t op_);
+    std::vector<char> pack_response(Status status, uint8_t op_, const std::string &filename);
 };

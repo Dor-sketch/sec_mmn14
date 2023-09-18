@@ -152,10 +152,11 @@ std::vector<char> FileHandler::get_file_list(uint32_t user_id)
     return pack_response (Status::SUCCESS_FILE_LIST, OP_GET_FILE_LIST);
 }
 
-std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
+std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
+                                const std::string &filename)
 {
     std::vector<char> responseBuffer;
-    std::cout << "inside pack_response" << std::endl;
+    // Set response fields
     uint8_t version = 1;
     uint16_t status_code = static_cast<uint16_t>(status);
     uint16_t name_len = 0;
@@ -169,11 +170,9 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
         {
             // Set response fields
             name_len = filename_.length();
-            payload_size = file_size_;
+            
 
-            // Pack response
-            payload.append(reinterpret_cast<const char *>(&payload_size), sizeof(payload_size));
-            payload.append(file_contents_);
+            // no payload for save file
         }
         break;
 
@@ -227,34 +226,37 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_)
         payload_size = payload.size();
         break;
     }
-    // Packing the header. (This is just a simple example, adapt as needed.)
-    responseBuffer.push_back(version);
-    responseBuffer.push_back(static_cast<char>(status_code));
-    responseBuffer.push_back(name_len & 0xFF);            // lower byte
-    responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte
 
+    // =====================================
+    // Packing the response header
+    responseBuffer.push_back(version);                    // byte 0
+    responseBuffer.push_back(static_cast<char>(status_code));
+    // byte 1-2 status code
+    responseBuffer.push_back(name_len & 0xFF);            // lower byte of name length
+    responseBuffer.push_back((name_len >> 8) & 0xFF);     // upper byte of name length
+    responseBuffer.insert(responseBuffer.end(), filename_.data(), filename_.data() + name_len); // name (variable length)
+
+    // =====================================
     // Packing the payload size
     responseBuffer.push_back(payload_size & 0xFF);        // byte 0
     responseBuffer.push_back((payload_size >> 8) & 0xFF); // byte 1
     responseBuffer.push_back((payload_size >> 16) & 0xFF); // byte 2
     responseBuffer.push_back((payload_size >> 24) & 0xFF); // byte 3
-
-    std::cout << "Packing Response: " << std::endl;
-    std::cout << "Version: " << (int)version << std::endl;
-    std::cout << "Status Code: " << status_code << std::endl;
-    std::cout << "Name Length: " << name_len << std::endl;
-    std::cout << "Payload Size: " << payload_size << std::endl;
-
-    // Packing the payload
+    // Packing the payload data
     responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
-    std::cout << "responseBuffer: " << responseBuffer.data() << std::endl;
-    for (const auto &byte : responseBuffer)
-    {
-        std::cout << std::hex << static_cast<int>(byte) << " ";
-    }
-    std::cout << std::endl;
+
+    // std::cout << "Packing Response: " << std::endl;
+    // std::cout << "Version: " << (int)version << std::endl;
+    // std::cout << "Status Code: " << status_code << std::endl;
+    // std::cout << "Name Length: " << name_len << std::endl;
+    // std::cout << "Payload Size: " << payload_size << std::endl;
+
+    // for (const auto &byte : responseBuffer)
+    // {
+    //     std::cout << std::hex << static_cast<int>(byte) << " ";
+    // }
+    // std::cout << std::endl;
 
     return responseBuffer;
-
 }
 
