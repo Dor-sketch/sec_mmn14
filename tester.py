@@ -1,8 +1,12 @@
 import socket
 import struct
+import random
+import configparser
 
-SERVER_ADDRESS = 'localhost'
-SERVER_PORT = 1234
+
+
+VERSION = 1
+
 """
 enum class Status : uint16_t
 {
@@ -21,22 +25,39 @@ static const uint8_t OP_DELETE_FILE = 201;
 static const uint8_t OP_GET_FILE_LIST = 202;
 """
 
-# Define the test data
-user_id = 1233
-version = 1
-op = 202
-filename = b'ligall.txt'
-file_contents = b'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'
 
-FIXED_FORMAT = '<I B B H' 
-NAME_FORMAT = '{}s'.format(len(filename))
-PAYLOAD_FORMAT = '{}s'.format(len(file_contents))
 
-message = struct.pack(FIXED_FORMAT, user_id, version, op, len(filename))
-message += struct.pack(NAME_FORMAT, filename)
-message += struct.pack('<I', len(file_contents)) + struct.pack(PAYLOAD_FORMAT, file_contents)
+def create_message(user_id, version, op, filename, file_contents):
+    FIXED_FORMAT = '<I B B H' 
+    NAME_FORMAT = '{}s'.format(len(filename))
+    PAYLOAD_FORMAT = '{}s'.format(len(file_contents))
 
-print("Sending message:", message.hex())
+    message = struct.pack(FIXED_FORMAT, user_id, version, op, len(filename))
+    message += struct.pack(NAME_FORMAT, filename)
+    message += struct.pack('<I', len(file_contents)) + struct.pack(PAYLOAD_FORMAT, file_contents)
+
+    print("packed message:", message.hex())
+    return message
+
+
+def receive_response(sock):
+    # Receive the response header
+    fixed_response_format = 'BBH'
+    response_header = recvall(sock, struct.calcsize(fixed_response_format))
+    version, status, name_len = struct.unpack(fixed_response_format, response_header)
+
+    # Receive and unpack the filename
+    filename = recvall(sock, name_len)
+
+    # Receive and unpack the payload size
+    file_size = struct.unpack('<I', recvall(sock, 4))[0]
+
+    # Receive and unpack the payload
+    payload = recvall(sock, file_size)
+
+    # Return the response
+    return version, status, filename.decode(), payload.decode()
+
 
 def recvall(sock, count):
     buf = b''
@@ -48,31 +69,76 @@ def recvall(sock, count):
         count -= len(newbuf)
     return buf
 
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-    sock.connect((SERVER_ADDRESS, SERVER_PORT))
-    try:
-        # Send the message to the server
-        sock.sendall(message)
+def receive_response(sock):
+    # Receive the response header
+    fixed_response_format = 'BBH'
+    response_header = recvall(sock, struct.calcsize(fixed_response_format))
+    version, status, name_len = struct.unpack(fixed_response_format, response_header)
+
+    # Receive and unpack the filename
+    filename = recvall(sock, name_len)
+
+    # Receive and unpack the payload size
+    file_size = struct.unpack('<I', recvall(sock, 4))[0]
+
+    # Receive and unpack the payload
+    payload = recvall(sock, file_size)
+
+    # Return the response
+    return version, status, filename.decode(), payload.decode()
+
+
+def main():
+    # create 4 bytes random id
+    random_id =  random.getrandbits(32)
+    print("Random ID:", random_id)
+
+    # Read the server configuration from the server.info file
+    with open('server.info', 'r') as f:
+        line = f.readline().strip()
+        server_address, server_port = line.split(':')
+
+    # Convert the server port to an integer
+    server_port = int(server_port)
+
+    # Print the server address and port
+    print('Server address:', server_address)
+    print('Server port:', server_port)
+
+    with open('backup.info', 'r') as f:
+        filenames = f.read().split('\n')
+
+    print("filenames:", filenames)
+
+    with open(filenames[0], 'rb') as f:
+        file_contents = f.read()
+    print("file contents:", file_contents)
+
+    filename = filenames[0].encode()
+
+    # Create the message
+    message = create_message(random_id, VERSION, 100, filename, file_contents)
+    print("Sending message:", message.hex())
+
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.connect((server_address, server_port))
+        try:
+            # Send the message to the server
+            sock.sendall(message)
+
+            # Receive the response
+            version, status, filename, payload = receive_response(sock)
+
+            # Display the response
+            print('Version:', version)
+            print('Status:', status)
+            print('Filename:', filename.decode())
+            print('Payload:', payload.decode())
+
+        except ConnectionResetError:
+            print("Connection reset by peer")
+
+
+if __name__ == '__main__':
+    main()
     
-        # Receive the response header
-        fixed_response_format = 'BBH'
-        response_header = recvall(sock, struct.calcsize(fixed_response_format))
-        version, status, name_len = struct.unpack(fixed_response_format, response_header)
-    
-        # Receive and unpack the filename
-        filename = recvall(sock, name_len)
-    
-        # Receive and unpack the payload size
-        file_size = struct.unpack('<I', recvall(sock, 4))[0]
-    
-        # Receive and unpack the payload
-        payload = recvall(sock, file_size)
-    
-        # Display the response
-        print('Version:', version)
-        print('Status:', status)
-        print('Filename:', filename.decode())
-        print('Payload:', payload.decode())
-    
-    except ConnectionResetError:
-        print("Connection reset by peer")
