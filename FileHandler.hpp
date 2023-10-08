@@ -1,6 +1,6 @@
 #pragma once
 
-#include "server_status.hpp"
+#include "Status.hpp"
 #include <string>
 #include <vector>
 #include <algorithm>
@@ -31,7 +31,7 @@ public:
                             const std::string &filename);
                             
 private:
-    // this private function packs the response according to the protocol.
+    // A private function to pack the response according to the protocol.
     // it is called from the handler functions above,
     // it uses the Status and the class var member to pack the reponse
     // response returns to the session classfrom the handler functions

@@ -1,4 +1,4 @@
-#include "session.hpp"
+#include "Session.hpp"
 
 namespace asio = boost::asio; // for cleaner code
 
@@ -8,17 +8,15 @@ Session::Session(asio::basic_stream_socket<asio::ip::tcp> socket,
   file_handler_(folder_path),
   requestBuffer_{0},
   header_buffer_{0} // Initialize header_buffer_ with size 8
-  // TODO - finish init foe examp msg
+  // TODO - finish init for examp msg
 {}
 
 void Session::start()
 {
-
     std::cout << "start processing request...";
     do_read_header();
 }
 
-// a function to header fields from client request
 void Session::do_read_header()
 {
     auto self(shared_from_this());
@@ -71,7 +69,7 @@ void Session::do_read_header()
 
 // the function tries to read dynamic size name based on name_len_ field
 // it stores the name in message_.filename_, 
-//after processing the name in the msg buffer_
+// after processing the name in the msg buffer_
 void Session::do_read_filename()
 {
     auto self(shared_from_this());
@@ -128,7 +126,8 @@ void Session::do_read_filename()
             }
             else
             {
-                std::cerr << "Error reading from socket: " << ec.message() << std::endl;
+                std::cerr << "Error reading from socket: " 
+                    << ec.message() << std::endl;
             }
             
          }
@@ -188,7 +187,9 @@ void Session::do_read_payload()
                              // store file content in file_contents_
                              message_.set_file_content();
 
-                             std::vector<char> response_buf = file_handler_.save_file(message_.get_user_id(), message_.get_filename(), message_.get_file_content());
+                             std::vector<char> response_buf = 
+                                    file_handler_.save_file(message_.get_user_id(),
+                                        message_.get_filename(), message_.get_file_content());
 
                              // Send the response to the client
                              send_response(std::string(response_buf.begin(),
@@ -206,11 +207,6 @@ void Session::do_read_payload()
 
 void Session::send_response(const std::string &responseBuffer)
 {
-    // for (const auto &byte : responseBuffer)
-    // {
-    //     std::cout << std::hex << static_cast<int>(byte) << " ";
-    // }
-    // std::cout << std::endl;
     asio::write(socket_, asio::buffer(responseBuffer));
     std::cout << "response sent" << std::endl;
     graceful_close();

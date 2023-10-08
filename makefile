@@ -10,7 +10,7 @@ BOOST_LIB = $(BOOST_ROOT)/lib
 BOOST_LIBS = -lboost_system -lboost_filesystem
 
 # Source files
-SRCS = main.cpp session.cpp file_handler.cpp message.cpp
+SRCS = main.cpp Session.cpp FileHandler.cpp Message.cpp
 
 # Object files
 OBJS = $(SRCS:.cpp=.o)
@@ -29,3 +29,4 @@ $(EXEC): $(OBJS)
 
 clean:
 	rm -f $(OBJS) $(EXEC)
+	rm -rf ./backupsvr

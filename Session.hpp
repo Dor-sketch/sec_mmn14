@@ -1,8 +1,8 @@
 #ifndef SESSION_HPP
 #define SESSION_HPP
 
-#include "message.hpp"
-#include "file_handler.hpp"
+#include "Message.hpp"
+#include "FileHandler.hpp"
 #include <boost/asio.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <iostream>
@@ -24,20 +24,22 @@ private:
     // Private member functions helps to define the flow of the session
     // each request requires different flow. 
     // the session class uses the message class to determine the op code
-    // and then keep reading the request according to the op code
+    // and then keep reading the request according to the op code.
+
+    // A function to parse header fields from client requests
     void do_read_header();
 
     // used by all except OP_GET_FILE_LIST
     void do_read_filename ();
 
-    // ================================
     // used only for the OP_SAVE_FILE
     void do_read_fileSize();
+
     // called by do_read_fileSize
     void do_read_payload();
-    // ================================
 
     void send_response(const std::string &response);
+
     // called by send_response
     void graceful_close();
 

@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
-#include "server_status.hpp"
+#include "Status.hpp"
 
 // The message class is used to parse the request and to pack and to store
 // the requests fields. It used by the session class.

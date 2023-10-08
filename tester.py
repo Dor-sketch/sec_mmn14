@@ -4,6 +4,7 @@
 import socket
 import struct
 import random
+import os # to check for file existence
 
 VERSION = 1
 OP_SAVE = 100
@@ -21,26 +22,17 @@ FAILURE = 1003
 import time
 
 
-
 # pack the message into bytes according to the protocol
 def create_message(user_id, version, op, filename, file_contents=b''):
     FIXED_FORMAT = '<I B B H'  # user_id, version, op, name_len
     NAME_FORMAT = '{}s'.format(len(filename))
     PAYLOAD_FORMAT = '{}s'.format(len(file_contents))
 
-    # print("user_id:", user_id)
-    # print("version:", version)
-    # print("op:", op)
-    # print("filename:", filename)
-    # print("len(filename):", len(filename))
-    # print("file_contents(len):", len(file_contents))
-
     message = struct.pack(FIXED_FORMAT, user_id, version, op, len(filename))
     message += struct.pack(NAME_FORMAT, filename)
     message += struct.pack('<I', len(file_contents)) \
         + struct.pack(PAYLOAD_FORMAT, file_contents)
 
-    # print("packed message:", message.hex())
     return message
 
 
@@ -82,10 +74,8 @@ def receive_response(sock):
     if status in [STATUS_LIST_OK,\
                   STATUS_FILE_RESTORED]:
         raw_file_size_bytes = recvall(sock, 4)        
-        # print(raw_file_size_bytes.hex())
         file_size = struct.unpack('<I', raw_file_size_bytes)[0]
         raw_payload = recvall(sock, file_size)
-        # print(raw_payload.hex())
         return version, status, filename, raw_payload
 
     return version, status, filename, None
@@ -93,7 +83,6 @@ def receive_response(sock):
 
 # send message to server and recieve response with helper functions
 def send_nd_recieve(message, server_address, server_port):
-    # print("Sending message:", message.hex())
     
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         try:
@@ -103,7 +92,6 @@ def send_nd_recieve(message, server_address, server_port):
             sock.sendall(message)
             # Receive the response 
             version, status, filename1, payload = receive_response(sock)
-            # print('Payload:', payload)
 
         except Exception as e:
             print(f"Unexpected error: {e}")
@@ -177,9 +165,20 @@ def main():
     # (3) Read the file names from backup.info 
     print("=========================================================")
     print("3. Reading file names from backup.info")
-    with open('backup.info', 'r') as f:
-        filenames = f.read().split('\n')
-    print("filenames:", filenames)
+    # first check if the file exists
+    try:
+        with open('backup.info', 'r') as f:
+            filenames = f.read().split('\n')
+            print("filenames:", filenames)
+    except FileNotFoundError:
+        print("backup.info file not found")
+        return        
+
+    # check if files written in backup.info exist
+    for filename in filenames:
+        if not os.path.isfile(filename):
+            print("File {} not found".format(filename))
+            return
 
     with open(filenames[0], 'rb') as f:
         file_contents1 = f.read()
@@ -257,11 +256,6 @@ def main():
     # # (11) quitting the client
     print("11. =========================================================")
     print("Quitting the client")
-
-
-
-
-
 
 
 if __name__ == '__main__':
