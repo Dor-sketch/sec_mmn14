@@ -30,3 +30,4 @@ $(EXEC): $(OBJS)
 clean:
 	rm -f $(OBJS) $(EXEC)
 	rm -rf ./backupsvr
+	@if [ -f temp.pdf ]; then rm temp.pdf; fi
