@@ -2,15 +2,10 @@
 
 #include "FileHandler.hpp"
 #include "Message.hpp"
-#include <boost/algorithm/string/join.hpp>
 #include <boost/asio.hpp>
-#include <iomanip>
 #include <iostream>
 #include <string>
 
-// The session class handles the asynchronous communication with the client
-// it is created by the server class, it uses the message class to parse the
-// request and the file_handler class to handle the request
 class Session : public std::enable_shared_from_this<Session> {
 private:
   boost::asio::basic_stream_socket<boost::asio::ip::tcp> socket_;
@@ -19,22 +14,17 @@ private:
   Message message_;
   char header_buffer_[8];
 
-  // Private member functions helps to define the flow of the session
-  // each request requires different flow.
-  // the session class uses the message class to determine the op code
-  // and then keep reading the request according to the op code.
-
   // A function to parse header fields from client requests
-  void do_read_header();
+  void readHeader();
 
   // used by all except OP_GET_FILE_LIST
-  void do_read_filename();
+  void readFilename();
 
   // used only for the OP_SAVE_FILE
-  void do_read_fileSize();
+  void readFileSize();
 
   // called by do_read_fileSize
-  void do_read_payload();
+  void readPayload();
 
   void send_response(const std::string &response);
 
@@ -47,4 +37,3 @@ public:
 
   void start();
 };
-

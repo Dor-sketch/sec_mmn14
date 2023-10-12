@@ -12,10 +12,10 @@ Session::Session(asio::basic_stream_socket<asio::ip::tcp> socket,
 
 void Session::start() {
   std::cout << "start processing request...";
-  do_read_header();
+  readHeader();
 }
 
-void Session::do_read_header() {
+void Session::readHeader() {
   auto self(shared_from_this());
   asio::async_read(
       socket_, asio::buffer(header_buffer_, Message::HEADER_LENGTH),
@@ -24,13 +24,13 @@ void Session::do_read_header() {
           if (length != Message::HEADER_LENGTH) {
             std::cerr << "Unexpected number of bytes read!" << std::endl;
           }
-          message_.set_header_buffer(header_buffer_);
-          if (message_.parse_fixed_header()) {
+          message_.setHeaderBuffer(header_buffer_);
+          if (message_.parseFixedHeader()) {
             // chek if OP_GET_FILE_LIST - no need for more data
-            if (message_.get_op_code() == OP_GET_FILE_LIST) {
+            if (message_.getOperationCode() == OP_GET_FILE_LIST) {
               // get file list from file_handler_
               std::vector<char> response_buf =
-                  file_handler_.get_file_list(message_.get_user_id());
+                  file_handler_.get_file_list(message_.getUserId());
 
               // Send the response to the client
               send_response(
@@ -40,7 +40,7 @@ void Session::do_read_header() {
             }
 
             // contine fllow to read dynamic size name
-            do_read_filename();
+            readFilename();
           } else {
             std::cerr << "Error in parsing header." << std::endl;
           }
@@ -54,38 +54,38 @@ void Session::do_read_header() {
 // the function tries to read dynamic size name based on name_len_ field
 // it stores the name in message_.filename_,
 // after processing the name in the msg buffer_
-void Session::do_read_filename() {
+void Session::readFilename() {
   auto self(shared_from_this());
-  message_.get_buffer().resize(message_.get_name_length());
+  message_.getBuffer().resize(message_.getNameLength());
   asio::async_read(
-      socket_, asio::buffer(message_.get_buffer(), message_.get_name_length()),
+      socket_, asio::buffer(message_.getBuffer(), message_.getNameLength()),
       [this, self](boost::system::error_code ec, std::size_t length) {
         if (!ec) {
-          if (length != message_.get_name_length()) {
+          if (length != message_.getNameLength()) {
             std::cerr << "Unexpected number of bytes read!" << std::endl;
           }
 
           // file name stored successfully in msg buffer_
-          message_.set_filename();
+          message_.setFilename();
 
           // AFTER filename is read and set:
-          if (message_.get_op_code() == OP_SAVE_FILE) {
+          if (message_.getOperationCode() == OP_SAVE_FILE) {
             // start by getting file size from payload
-            do_read_fileSize();
+            readFileSize();
             return;
-          } else if (message_.get_op_code() == OP_RESTORE_FILE) {
+          } else if (message_.getOperationCode() == OP_RESTORE_FILE) {
             // get file content from file_handler_
             std::vector<char> response_buf = file_handler_.restore_file(
-                message_.get_user_id(), message_.get_filename());
+                message_.getUserId(), message_.getFilename());
 
             // Send the response to the client
             send_response(
                 std::string(response_buf.begin(), response_buf.end()));
             return;
-          } else if (message_.get_op_code() == OP_DELETE_FILE) {
+          } else if (message_.getOperationCode() == OP_DELETE_FILE) {
             // delete file from file_handler_
             std::vector<char> response_buf2 = file_handler_.delete_file(
-                message_.get_user_id(), message_.get_filename());
+                message_.getUserId(), message_.getFilename());
 
             send_response(
                 std::string(response_buf2.begin(), response_buf2.end()));
@@ -100,52 +100,52 @@ void Session::do_read_filename() {
       });
 }
 
-void Session::do_read_fileSize() {
+void Session::readFileSize() {
   auto self(shared_from_this());
   asio::async_read(
       socket_,
-      asio::buffer(message_.get_file_size_buffer(),
+      asio::buffer(message_.getFileSizeBuffer(),
                    Message::FILE_SIZE_BUFFER_LENGTH),
       [this, self](boost::system::error_code ec, std::size_t length) {
         if (!ec) {
           if (length != Message::FILE_SIZE_BUFFER_LENGTH) {
             std::cerr << "Unexpected number of bytes read!" << std::endl;
           }
-          message_.set_file_size();
+          message_.getFileSize();
           // ready to read file content
-          do_read_payload();
+          readPayload();
         } else {
           std::cerr << "Error reading header: " << ec.message() << std::endl;
         }
       });
 }
 
-void Session::do_read_payload() {
+void Session::readPayload() {
 
   auto self(shared_from_this());
 
   // Resize the buffer to hold the name and the file content
-  message_.get_buffer().resize(message_.get_name_length() +
-                               message_.get_file_size());
+  message_.getBuffer().resize(message_.getNameLength() +
+                              message_.getFileSize());
 
   // Create an iterator to point to the start of where the file content should
   // be
-  auto it = message_.get_buffer().begin() + message_.get_name_length();
+  auto it = message_.getBuffer().begin() + message_.getNameLength();
 
   asio::async_read(
-      socket_, asio::buffer(&(*it), message_.get_file_size()),
+      socket_, asio::buffer(&(*it), message_.getFileSize()),
       [this, self](boost::system::error_code ec, std::size_t length) {
         if (!ec) {
-          if (length != message_.get_file_size()) {
+          if (length != message_.getFileSize()) {
             std::cerr << "Unexpected number of bytes read!" << std::endl;
           }
 
           // store file content in file_contents_
-          message_.set_file_content();
+          message_.getFileContent();
 
           std::vector<char> response_buf = file_handler_.save_file(
-              message_.get_user_id(), message_.get_filename(),
-              message_.get_file_content());
+              message_.getUserId(), message_.getFilename(),
+              message_.getFileContent());
 
           // Send the response to the client
           send_response(std::string(response_buf.begin(), response_buf.end()));
