@@ -24,7 +24,7 @@ This program is designed to perform various file operations such as saving, rest
    make
    ```
 
-   This will generate an executable named `my_program`.
+   This will generate an executable named `server_app`.
 
 2. **Configuration**: Provide a `server.info` file with the server IP address and port:
 
@@ -41,14 +41,14 @@ This program is designed to perform various file operations such as saving, rest
 3. **Execution**: Run the server using:
 
    ```bash
-   ./my_program
+   ./server_app
    ```
 
 ## Client Details
 
 ### Client Files
 
-- `tester.py`: A Python client to test the server's functionality. The client has been refactored for improved object-oriented design, streamlined flow of operations, and enhanced error handling.
+- `client.py`: A Python client to test the server's functionality. The client has been refactored for improved object-oriented design, streamlined flow of operations, and enhanced error handling.
 
 ### Client Usage
 

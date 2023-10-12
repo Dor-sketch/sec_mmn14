@@ -1,82 +1,94 @@
-// Description: Main file for the server. It creates the server and starts it.
-
 #include "Session.hpp"
+#include <boost/asio.hpp>
 #include <fstream>
 #include <iostream>
-#include <boost/asio.hpp>
 
 using boost::asio::ip::tcp;
 
 class Server
 {
 private:
-    tcp::acceptor acceptor_;
-    tcp::socket socket_;
-    static const std::string folder_path_;
+  tcp::acceptor acceptor_;
+  tcp::socket socket_;
+  const std::string folder_path_ = "backupsvr";
 
-    void do_accept()
-    {
-        acceptor_.async_accept(socket_,
-                               [this](boost::system::error_code ec)
-                               {
-                                   if (!ec)
-                                   {
-                                       std::make_shared<Session>(
-                                        std::move(socket_),
-                                        folder_path_
-                                       )->start();
-                                   }
-                                   do_accept();
-                               });
-    }
+  void do_accept()
+  {
+    acceptor_.async_accept(socket_, [this](boost::system::error_code ec)
+                           {
+            if (!ec) {
+                std::make_shared<Session>(std::move(socket_), folder_path_)->start();
+            } else {
+                std::cerr << "Error accepting connection: " << ec.message() << std::endl;
+            }
+            // Always try to accept new connections
+            do_accept(); });
+  }
 
 public:
-    Server(boost::asio::io_context &io_context,
-        boost::asio::ip::tcp::endpoint endpoint)
-    : acceptor_(io_context, endpoint),
-      socket_(io_context)
-    {
-        do_accept();
-    }
+  Server(boost::asio::io_context &io_context, const tcp::endpoint &endpoint)
+      : acceptor_(io_context, endpoint), socket_(io_context)
+  {
+    do_accept();
+  }
 };
 
-const std::string Server::folder_path_ = "backupsvr";
+bool parse_server_info(const std::string &filename, std::string &ip_address_str, int &port_number)
+{
+  std::ifstream infile(filename);
+  std::string ip_port_str;
+
+  if (std::getline(infile, ip_port_str))
+  {
+    size_t colon_pos = ip_port_str.find(':');
+    if (colon_pos != std::string::npos)
+    {
+      ip_address_str = ip_port_str.substr(0, colon_pos);
+      try
+      {
+        port_number = std::stoi(ip_port_str.substr(colon_pos + 1));
+        return true;
+      }
+      catch (const std::exception &e)
+      {
+        std::cerr << "Error parsing port number: " << e.what() << std::endl;
+        return false;
+      }
+    }
+  }
+  return false;
+}
 
 int main()
 {
-    std::ifstream infile("server.info");
-    std::string ip_port_str;
+  std::string ip_address_str;
+  int port_number = 0;
 
-    if (std::getline(infile, ip_port_str))
+  if (parse_server_info("server.info", ip_address_str, port_number))
+  {
+    std::cout << "IP address: " << ip_address_str << std::endl;
+    std::cout << "Port number: " << port_number << std::endl;
+
+    try
     {
-        size_t colon_pos = ip_port_str.find(':');
-        if (colon_pos != std::string::npos)
-        {
-            std::string ip_address_str = ip_port_str.substr(0, colon_pos);
-            int port_number = std::stoi(ip_port_str.substr(colon_pos + 1));
-            std::cout << "IP address: " << ip_address_str << std::endl;
-            std::cout << "Port number: " << port_number << std::endl;
+      boost::asio::ip::address ip_address = boost::asio::ip::address::from_string(ip_address_str);
 
-            boost::asio::ip::address ip_address =
-                boost::asio::ip::address::from_string(ip_address_str);
+      tcp::endpoint endpoint(ip_address, port_number);
+      boost::asio::io_context io_context;
 
-            // creating endpoint based on ip address and port number from file "server.info"
-            boost::asio::ip::tcp::endpoint endpoint(ip_address, port_number);
-            boost::asio::io_context io_context;
-
-            std::cout << "Starting server... press Ctrl+C to quit" << std::endl;
-            Server server(io_context, endpoint);
-            io_context.run();
-        }
-        else
-        {
-            std::cerr << "Error: Invalid IP address and port number format." << std::endl;
-        }
+      std::cout << "Starting server... press Ctrl+C to quit" << std::endl;
+      Server server(io_context, endpoint);
+      io_context.run();
     }
-    else
+    catch (const std::exception &e)
     {
-        std::cerr << "Error: Failed to read server.info file." << std::endl;
+      std::cerr << "Error: " << e.what() << std::endl;
     }
+  }
+  else
+  {
+    std::cerr << "Error: Failed to parse server.info file or invalid format." << std::endl;
+  }
 
-    return 0;
+  return 0;
 }

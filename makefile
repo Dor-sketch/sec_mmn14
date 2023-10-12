@@ -16,7 +16,7 @@ SRCS = main.cpp Session.cpp FileHandler.cpp Message.cpp
 OBJS = $(SRCS:.cpp=.o)
 
 # Executable file
-EXEC = my_program
+EXEC = server_app
 
 # Targets
 all: $(EXEC)
