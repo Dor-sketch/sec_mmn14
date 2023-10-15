@@ -1,211 +1,222 @@
 #include "FileHandler.hpp"
-#include <algorithm> // For std::sort
-#include <boost/algorithm/sort_subrange.hpp>
 #include <boost/filesystem.hpp>
-#include <dirent.h> // For opendir, readdir, etc.
-#include <fstream>
 #include <iostream>
-#include <string>
-#include <vector>
+#include <fstream>
+#include <dirent.h>
+#include <spdlog/spdlog.h>
 
-FileHandler::FileHandler(const std::string &folder_path)
-    : folder_path_(folder_path), file_list_{}
-// Initialize file_list_ with size 0
+FileHandler::FileHandler(const std::string &folder_path) : folder_path_(folder_path)
 {
-  // check if the folder "backupsvr" exists and if not, create it
-  if (!boost::filesystem::exists(folder_path_)) {
+  if (!boost::filesystem::exists(folder_path_))
+  {
     boost::filesystem::create_directory(folder_path_);
   }
 }
 
-std::vector<char> FileHandler::save_file(uint32_t user_id,
-                                         const std::string &filename,
-                                         const std::string &content) {
-  std::string user_id_str = std::to_string(user_id);
-  std::string dir_path = folder_path_ + "/" + user_id_str;
-  std::string file_name_str = filename;
-  std::string full_path = dir_path + "/" + file_name_str;
 
-  // Check and create directory if it doesn't exist
-  if (!boost::filesystem::exists(dir_path)) {
-    if (!boost::filesystem::create_directories(dir_path)) {
-      std::cerr << "Failed to create directory: " << dir_path << '\n';
-      return pack_response(Status::FAILURE, OP_SAVE_FILE, file_name_str);
-    }
+std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &filename, const std::string &content)
+{
+  spdlog::debug("Starting to save file: {}", filename);
+
+  if (content.empty())
+  {
+    spdlog::warn("Provided content for file {} is empty", filename);
+    return pack_response(Status::FAILURE, OP_SAVE_FILE, filename);
   }
 
+  std::string dir_path = constructPath(user_id);
+  createDirectoryIfNotExists(dir_path);
+
+  std::string full_path = dir_path + "/" + filename;
   std::ofstream ofs(full_path, std::ios::binary);
 
-  if (!ofs) {
-    std::cerr << "Failed to open file: " << full_path << '\n';
-    return pack_response(Status::FAILURE, OP_SAVE_FILE, file_name_str);
+  if (!ofs)
+  {
+    spdlog::error("Failed to open file {} for writing", full_path);
+    return pack_response(Status::FAILURE, OP_SAVE_FILE, filename);
   }
 
-  ofs << content; // use stream insertion for strings, more idiomatic
+  ofs << content;
+  ofs.flush(); // Ensure the content is written to the file
 
-  if (!ofs.good()) {
-    ofs.close();
-    std::cerr << "Failed to write to file: " << full_path << '\n';
-    return pack_response(Status::FAILURE, OP_SAVE_FILE, file_name_str);
+  if (ofs.fail())
+  {
+    spdlog::error("Failed to write to file {}", full_path);
+    return pack_response(Status::FAILURE, OP_SAVE_FILE, filename);
   }
 
-  ofs.close();
-  return pack_response(Status::SUCCESS_SAVE, OP_SAVE_FILE, file_name_str);
+  spdlog::debug("Successfully saved file {}", filename);
+  return pack_response(Status::SUCCESS_SAVE, OP_SAVE_FILE, filename);
 }
 
-std::vector<char> FileHandler::restore_file(uint32_t user_id,
-                                            const std::string &filename) {
-  std::string user_id_str = std::to_string(user_id);
-  std::string dir_path = folder_path_ + "/" + user_id_str;
-  std::string file_name_str = filename;
-  std::string full_path = dir_path + "/" + file_name_str;
+#include <iostream>     // for std::cerr
+#include <system_error> // for std::error_code
+
+std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string &filename)
+{
+  std::string full_path = constructPath(user_id) + "/" + filename;
+
+  // Debugging output
+  spdlog::debug("Trying to restore file at path: {}", full_path);
+
+  if (!boost::filesystem::exists(full_path))
+  {
+    spdlog::error("File does not exist: {}", full_path);
+    return pack_response(Status::ERROR_FILE_NOT_FOUND, OP_RESTORE_FILE, filename);
+  }
+
   std::ifstream ifs(full_path, std::ios::binary);
-
-  if (!ifs) {
-    // Error opening file for reading
-    return pack_response(Status::ERROR_FILE_NOT_FOUND, OP_RESTORE_FILE,
-                         file_name_str);
-    // or throw an exception or return an error status
+  if (!ifs.is_open())
+  {
+    spdlog::error("Failed to open file for reading: {}", full_path);
+    return pack_response(Status::ERROR_FILE_NOT_FOUND, OP_RESTORE_FILE, filename);
   }
 
-  std::string content((std::istreambuf_iterator<char>(ifs)),
-                      std::istreambuf_iterator<char>());
-
-  file_contents_ = content;
-  return pack_response(Status::SUCCESS_RESTORE, OP_RESTORE_FILE, file_name_str);
-}
-
-std::vector<char> FileHandler::delete_file(uint32_t user_id,
-                                           const std::string &filename) {
-  std::string user_id_str = std::to_string(user_id);
-  std::string dir_path = folder_path_ + "/" + user_id_str;
-  std::string file_name_str = filename;
-  std::string full_path = dir_path + "/" + file_name_str;
-
-  if (remove(full_path.c_str()) != 0) {
-    std::cerr << "Error deleting file: " << full_path << '\n';
-    return pack_response(Status::FAILURE, OP_DELETE_FILE, file_name_str);
-  } else {
-    // std::cout << "File deleted successfully" << '\n';
+  try
+  {
+    std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
+    file_contents_ = content;
+    spdlog::debug("Successfully read content of size: {} bytes", file_contents_.size());
+  }
+  catch (const std::exception &e)
+  {
+    spdlog::error("Exception caught while reading file: {}", e.what());
+    return pack_response(Status::FAILURE, OP_RESTORE_FILE, filename);
   }
 
-  // no success status is defined in the protocol, so we use SUCCESS_DELETE
-  return pack_response(Status::SUCCESS_DELETE, OP_DELETE_FILE, file_name_str);
+  return pack_response(Status::SUCCESS_RESTORE, OP_RESTORE_FILE, filename);
 }
 
-std::vector<char> FileHandler::get_file_list(uint32_t user_id) {
-  std::string user_id_str = std::to_string(user_id);
-  std::string dir_path = folder_path_ + "/" + user_id_str;
+std::vector<char> FileHandler::delete_file(uint32_t user_id, const std::string &filename)
+{
+  std::string full_path = constructPath(user_id) + "/" + filename;
+
+  if (remove(full_path.c_str()) != 0)
+  {
+    return pack_response(Status::FAILURE, OP_DELETE_FILE, filename);
+  }
+
+  return pack_response(Status::SUCCESS_DELETE, OP_DELETE_FILE, filename);
+}
+
+std::vector<char> FileHandler::get_file_list(uint32_t user_id)
+{
+  std::string dir_path = constructPath(user_id);
+  auto file_list = getFilesInDirectory(dir_path);
+
+  if (file_list.empty())
+  {
+    return pack_response(Status::ERROR_NO_FILES, OP_GET_FILE_LIST, "");
+  }
+
+  file_list_ = file_list;
+  return pack_response(Status::SUCCESS_FILE_LIST, OP_GET_FILE_LIST, file_list_.front());
+}
+#include <spdlog/spdlog.h>
+
+std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
+                                             const std::string &filename)
+{
+  std::vector<char> responseBuffer;
+  uint8_t version = 1;
+  uint16_t status_code = static_cast<uint16_t>(status);
+  uint16_t name_len = static_cast<uint16_t>(filename.length());
+  uint32_t payload_size = 0;
+  std::string payload;
+
+  auto pushToBuffer = [&responseBuffer](auto val)
+  {
+    for (size_t i = 0; i < sizeof(val); ++i)
+    {
+      responseBuffer.push_back(val & 0xFF);
+      val >>= 8;
+    }
+  };
+
+  switch (op_)
+  {
+  case OP_SAVE_FILE:
+    if (status != Status::SUCCESS_SAVE)
+      name_len = 0;
+    break;
+
+  case OP_RESTORE_FILE:
+    if (status == Status::SUCCESS_RESTORE)
+    {
+      payload_size = file_contents_.length();
+      payload = file_contents_;
+    }
+    else
+    {
+      name_len = 0;
+    }
+    break;
+
+  case OP_DELETE_FILE:
+    if (status != Status::SUCCESS_DELETE)
+      name_len = 0;
+    break;
+
+  case OP_GET_FILE_LIST:
+    if (status == Status::SUCCESS_FILE_LIST)
+    {
+      for (const auto &file : file_list_)
+      {
+        payload_size += file.size() + 1;
+        payload.append(file).append("\n");
+      }
+    }
+    else if (status != Status::ERROR_NO_FILES)
+    {
+      payload = "Error: Invalid operation.";
+      payload_size = payload.size();
+    }
+    break;
+  }
+
+  responseBuffer.push_back(version);
+  pushToBuffer(status_code);
+  pushToBuffer(name_len);
+  responseBuffer.insert(responseBuffer.end(), filename.data(), filename.data() + name_len);
+  pushToBuffer(payload_size);
+  responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
+
+  spdlog::debug("Packed response of size {} bytes for operation {} with status code {}",
+                responseBuffer.size(), op_, status_code);
+
+  return responseBuffer;
+}
+
+std::string FileHandler::constructPath(uint32_t user_id) const
+{
+  return folder_path_ + "/" + std::to_string(user_id);
+}
+
+void FileHandler::createDirectoryIfNotExists(const std::string &dir_path) const
+{
+  if (!boost::filesystem::exists(dir_path))
+  {
+    boost::filesystem::create_directories(dir_path);
+  }
+}
+
+std::vector<std::string> FileHandler::getFilesInDirectory(const std::string &dir_path) const
+{
   std::vector<std::string> file_list;
 
-  if (auto dir = opendir(dir_path.c_str())) {
-    while (auto f = readdir(dir)) {
-      if (!f->d_name || f->d_name[0] == '.') {
-        continue; // Skip everything that starts with a dot
+  if (auto dir = opendir(dir_path.c_str()))
+  {
+    while (auto f = readdir(dir))
+    {
+      if (!f->d_name || f->d_name[0] == '.')
+      {
+        continue;
       }
       file_list.push_back(std::string(f->d_name));
     }
     closedir(dir);
   }
-
   std::sort(file_list.begin(), file_list.end());
 
-  file_list_ = file_list;
-  std::string filename;
-  if (file_list_.empty()) {
-    return pack_response(Status::ERROR_NO_FILES, OP_GET_FILE_LIST, filename);
-  } else {
-    filename = file_list_.front();
-  }
-
-  return pack_response(Status::SUCCESS_FILE_LIST, OP_GET_FILE_LIST, filename);
-}
-
-std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
-                                             const std::string &filename) {
-  std::vector<char> responseBuffer;
-  // Set response fields
-  uint8_t version = 1;
-  uint16_t status_code = static_cast<uint16_t>(status);
-  uint16_t name_len = 0;
-  uint32_t payload_size = 0;
-  std::string payload;
-
-  switch (op_) {
-  case OP_SAVE_FILE:
-    if (status == Status::SUCCESS_SAVE) {
-      // Set response fields
-      name_len = filename.length();
-      // no payload for save file
-      payload_size = 0;
-    }
-    break;
-
-  case OP_RESTORE_FILE:
-    // no specal staus for restore file
-    if (status == Status::SUCCESS_RESTORE) {
-      // Set response fields
-      name_len = filename.length();
-      payload_size = file_contents_.length();
-
-      // Pack response
-      payload.append(reinterpret_cast<const char *>(&payload_size),
-                     sizeof(payload_size));
-      payload.append(file_contents_);
-    }
-    break;
-
-  case OP_DELETE_FILE:
-    if (status == Status::SUCCESS_DELETE) {
-      name_len = 0;
-      payload_size = 0;
-    }
-    break;
-
-  case OP_GET_FILE_LIST:
-    if (status == Status::ERROR_NO_FILES) {
-      // Set response fields
-      name_len = 0; // filename_ is empty
-      payload_size = 0;
-      status_code = static_cast<uint16_t>(Status::ERROR_NO_FILES);
-    } else if (status == Status::SUCCESS_FILE_LIST) {
-      // Compute the total length of the payload
-      payload_size = 0;
-      for (const auto &file : file_list_) {
-        payload_size += file.size() + 1; // +1 for the newline character
-      }
-      // Append each file name and newline to the payload
-      for (const auto &file : file_list_) {
-        payload.append(file);
-        payload.append("\n");
-      }
-    } else {
-      payload = "Error: Invalid operation.";
-      payload_size = payload.size();
-      break;
-    }
-  }
-
-  // Packing the response header
-  responseBuffer.push_back(version); // byte 0
-
-  // byte 1-2 status code in little-endian format
-  responseBuffer.push_back(status_code & 0xFF); // lower byte of status code
-  responseBuffer.push_back((status_code >> 8) &
-                           0xFF);                   // upper byte of status code
-  responseBuffer.push_back(name_len & 0xFF);        // lower byte of name length
-  responseBuffer.push_back((name_len >> 8) & 0xFF); // upper byte of name length
-  responseBuffer.insert(responseBuffer.end(), filename.data(),
-                        filename.data() + name_len); // name (variable length)
-
-  // Packing the payload size
-  responseBuffer.push_back(payload_size & 0xFF);         // byte 0
-  responseBuffer.push_back((payload_size >> 8) & 0xFF);  // byte 1
-  responseBuffer.push_back((payload_size >> 16) & 0xFF); // byte 2
-  responseBuffer.push_back((payload_size >> 24) & 0xFF); // byte 3
-
-  // Packing the payload data
-  responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
-
-  return responseBuffer;
+  return file_list;
 }

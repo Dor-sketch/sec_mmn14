@@ -52,7 +52,12 @@ bool parse_server_info(const std::string &filename, std::string &ip_address_str,
   return false;
 }
 
+#include <spdlog/spdlog.h> // Assuming you've included spdlog
+#include <spdlog/sinks/stdout_color_sinks.h>
+
 int main() {
+  auto console = spdlog::stdout_color_mt("console");
+  spdlog::set_level(spdlog::level::debug); // Set global log level to debug
   std::string ip_address_str;
   int port_number = 0;
 

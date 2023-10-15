@@ -83,6 +83,12 @@ class Client:
         except FileNotFoundError:
             logger.critical("backup.info file not found")
             return
+        for filename, content in self.file_data.items():
+            if len(content) == 0:
+                logger.warning(f"File {filename} appears to be empty.")
+            else:
+                logger.debug(f"Loaded {filename} of size: {len(content)} bytes")
+
 
     def create_message(self, op, file_index):
         if file_index >= len(self.filenames):
@@ -96,15 +102,53 @@ class Client:
         message = struct.pack(FIXED_FORMAT, self.id, self.version, op, len(filename))
         message += filename
         message += struct.pack("<I", len(file_contents)) + file_contents
-
+        logger.debug(f"Creating message for {filename}. File content size: {len(file_contents)} bytes.")
         return message
+
+    def format_bytes(self, byte_data):
+        """Format bytes to display them in groups of 16 bytes per row."""
+        return '\n'.join([' '.join(['{:02x}'.format(b) for b in byte_data[i:i+8]]) for i in range(0, len(byte_data), 8)])
+
 
     def send_and_receive(self, message):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
+                # Set a timeout for socket operations, e.g., 10 seconds
+                sock.settimeout(10)
+
                 sock.connect((self.server_address, self.server_port))
+                logger.debug(f"Connected to {self.server_address}:{self.server_port}")
+
+                # Log the message details here
+                logger.debug(f"Sending message of size {len(message)} bytes to the server.")
+
+                # Using the format_bytes function
+                formatted_message = self.format_bytes(message[:256])  # Displaying only the first 256 bytes as an example
+                logger.debug(f"Message content (first 256 bytes):\n{formatted_message}") 
+
                 sock.sendall(message)
-                version, status, filename, payload = self.receive_response(sock)
+                logger.debug(f"Message sent to server.")
+
+                # Log before trying to receive a response
+                logger.debug("Waiting for server response...")
+                
+                # Receive and check the response
+                response = self.receive_response(sock)
+                if response is None:
+                    logger.error("No valid response received from the server.")
+                    return
+
+                version, status, filename, payload = response
+                logger.debug("Received server response.")
+
+            except socket.timeout as e:
+                logger.error(f"Socket operation timed out: {e}")
+                return
+
+            except socket.error as e:
+                logger.error(f"Socket error: {e}")
+                return
+
             except Exception as e:
                 logger.critical(f"Unexpected error: {e}")
                 return
@@ -118,24 +162,23 @@ class Client:
         version, status, name_len = struct.unpack(
             fixed_response_format, response_header
         )
-
-        if status in [
-            STATUS_NO_FILES_FOUND,
-            FAILURE,
-            STATUS_FILE_NOT_FOUND,
-            STATUS_FILE_DELETED,
-        ]:
-            return version, status, None, None
-
-        filename = self.recvall(sock, name_len).decode()
-
+        logger.debug(f"Receiving response header of size {struct.calcsize(fixed_response_format)} bytes.")
+        filename = None
+        payload = None
+        if name_len:
+            try:
+                filename = self.recvall(sock, name_len).decode()
+            except UnicodeDecodeError:
+                logger.warning("Received filename is not valid UTF-8.")
+                filename = "<INVALID_FILENAME>"
         if status in [STATUS_LIST_OK, STATUS_FILE_RESTORED]:
             raw_file_size_bytes = self.recvall(sock, 4)
             file_size = struct.unpack("<I", raw_file_size_bytes)[0]
             payload = self.recvall(sock, file_size)
-            return version, status, filename, payload
+        elif status not in [STATUS_NO_FILES_FOUND, FAILURE, STATUS_FILE_NOT_FOUND, STATUS_FILE_DELETED]:
+            logger.warning(f"Unhandled status code received: {status}")
+        return version, status, filename, payload
 
-        return version, status, filename, None
 
     def recvall(self, sock, count):
         buf = b""
@@ -182,7 +225,7 @@ class Client:
                         filename = self.filenames[args[0]]
                     except IndexError:
                         pass
-                logger.debug(
+                logger.info(
                     f"Sending message to {op_name} the file: {filename if filename else 'N/A'}"
                 )
                 return func(self, *args, **kwargs)

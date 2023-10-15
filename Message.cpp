@@ -9,6 +9,8 @@
 #include <string>
 #include <vector>
 
+constexpr uint8_t Message::FILE_SIZE_BUFFER_LENGTH;
+
 Message::Message()
     : headerBuffer_{}, fileSizeBuffer_{0}, version_{0}, operationCode_{0},
       nameLength_{0}, userId_{0}, fileSize_{0},
