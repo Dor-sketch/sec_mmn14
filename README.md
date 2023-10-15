@@ -18,7 +18,13 @@ This program is designed to perform various file operations such as saving, rest
 
 ### Usage 🛠️
 
-1. **Compilation**: Compile the server program using the `Makefile`:
+1. **Dependencies**: Before building and running this project, make sure you have the following dependencies installed on your system:
+
+   - **C++ Compiler**: You'll need a C++ compiler. This project was developed using `g++`, but other C++ compilers should work as well.
+   - **Boost Libraries**: This project uses the Boost C++ Libraries for networking and filesystem operations. You can download and install Boost from [the official website](https://www.boost.org/).
+   - **FMT Library (Optional)**: If you need the FMT library, you can download it from [the FMT GitHub repository](https://github.com/fmtlib/fmt) or use your package manager if available.
+
+2. **Compilation**: Compile the server program using the `Makefile`:
 
    ```bash
    make
@@ -26,7 +32,7 @@ This program is designed to perform various file operations such as saving, rest
 
    This will generate an executable named `server_app`.
 
-2. **Configuration**: Provide a `server.info` file with the server IP address and port:
+3. **Configuration**: Provide a `server.info` file with the server IP address and port:
 
    ```bash
    <IP address>:<port number>
@@ -38,7 +44,7 @@ This program is designed to perform various file operations such as saving, rest
    127.0.0.1:8080
    ```
 
-3. **Execution**: Run the server using:
+4. **Execution**: Run the server using:
 
    ```bash
    ./server_app
@@ -52,9 +58,19 @@ This program is designed to perform various file operations such as saving, rest
 
 ### Client Usage 🛠️
 
-1. **Preparation**: Ensure both `server.info` and `backup.info` are in the same directory as the server and client. `server.info` contains the server IP and port, while `backup.info` lists filenames for the client to process.
+1. **Packages Preparation**: Before running this script, ensure you have the following package installed:
 
-2. **Running the Client**: Test the server's functionality with:
+   - Python `termcolor` package (version 1.1.0)
+
+   You can install the required package using `pip`:
+
+   ```bash
+   pip install termcolor==1.1.0
+   ```
+
+2. **Files Preparation**: Ensure both `server.info` and `backup.info` are in the same directory as the server and client. `server.info` contains the server IP and port, while `backup.info` lists filenames for the client to process.
+
+3. **Running the Client**: Test the server's functionality with:
 
    ```bash
    python3 tester.py
