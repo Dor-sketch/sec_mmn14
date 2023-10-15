@@ -2,9 +2,46 @@ import socket
 import struct
 import random
 import os
+from termcolor import colored
 import logging
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
+
+class RequestsColoredFormatter(logging.Formatter):
+    COLORS = {
+        "DEBUG": ("blue", []),
+        "INFO": ("green", []),
+        "WARNING": ("magenta", ["bold"]),
+        "ERROR": ("red", ["bold"]),
+        "CRITICAL": ("red", []),
+    }
+
+    def format(self, record):
+        log_message = super().format(record)
+        color, attrs = self.COLORS.get(record.levelname, ("white", []))
+        return colored(log_message, color, attrs=attrs)
+
+
+logger = logging.getLogger("logs")  # Changed to "logs" as per your request
+
+# Set the logging level for logger
+logger.setLevel(logging.DEBUG)
+
+# Check if the logger object already has handlers attached
+if not logger.handlers:
+    # Set up the console handler with the custom formatter for logger
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.DEBUG)
+    formatter = RequestsColoredFormatter(
+        "[logs] %(asctime)s [%(levelname)s] %(message)s"
+    )
+    console_handler.setFormatter(formatter)
+
+    # Ensure that logger doesn't propagate messages to root logger
+    logger.propagate = False
+
+    # Add the console handler to the logger object
+    logger.addHandler(console_handler)
+
 
 # Constants for operations and status codes
 VERSION = 1
@@ -21,6 +58,7 @@ STATUS_FILE_NOT_FOUND = 1001
 STATUS_NO_FILES_FOUND = 1002
 FAILURE = 1003
 
+
 class Client:
     def __init__(self, user_id, server_address, server_port):
         self.id = user_id
@@ -34,23 +72,27 @@ class Client:
     def load_files(self):
         try:
             with open("backup.info", "r") as f:
-                self.filenames = f.read().strip().split("\n")
+                potential_files = f.read().strip().split("\n")
+                for filename in potential_files:
+                    if not os.path.isfile(filename):
+                        logger.warning(f"File {filename} not found")
+                    else:
+                        with open(filename, "rb") as f:
+                            self.file_data[filename] = f.read()
+                            self.filenames.append(filename)
         except FileNotFoundError:
-            logging.warning("backup.info file not found")
+            logger.critical("backup.info file not found")
             return
 
-        for filename in self.filenames:
-            if not os.path.isfile(filename):
-                logging.warning(f"File {filename} not found")
-            else:
-                with open(filename, "rb") as f:
-                    self.file_data[filename] = f.read()
-
     def create_message(self, op, file_index):
+        if file_index >= len(self.filenames):
+            logger.error(f"File index {file_index} out of range!")
+            return None
+
         filename = self.filenames[file_index].encode()
         file_contents = self.file_data[self.filenames[file_index]]
 
-        FIXED_FORMAT = "<I B B H"  # user_id, version, op, name_len
+        FIXED_FORMAT = "<I B B H"
         message = struct.pack(FIXED_FORMAT, self.id, self.version, op, len(filename))
         message += filename
         message += struct.pack("<I", len(file_contents)) + file_contents
@@ -64,7 +106,7 @@ class Client:
                 sock.sendall(message)
                 version, status, filename, payload = self.receive_response(sock)
             except Exception as e:
-                print(f"Unexpected error: {e}")
+                logger.critical(f"Unexpected error: {e}")
                 return
 
             # Handle the server response based on the status
@@ -108,27 +150,29 @@ class Client:
         return buf
 
     def handle_server_response(self, status, filename, payload):
-        # Handle server response messages using logging instead of print
+        # Handle server response messages using logger instead of print
         if status == STATUS_FILE_RESTORED:
             with open(f"temp.{filename.split('.')[1]}", "wb") as f:
                 f.write(payload)
-            logging.info(f"File {filename} was restored successfully and saved to temp.{filename.split('.')[1]}")
+            logger.info(
+                f"File {filename} was restored successfully and saved to temp.{filename.split('.')[1]}"
+            )
         elif status == STATUS_FILE_NOT_FOUND:
-            logging.warning("File not found")
+            logger.error("File not found")
         elif status == STATUS_LIST_OK:
-            logging.info(f"Client files list: {payload.decode()}")
+            logger.info(f"Client files list: {payload.decode()}")
         elif status == STATUS_NO_FILES_FOUND:
-            logging.warning("No files found for this client")
+            logger.warning("No files found for this client")
         elif status == STATUS_FILE_SAVED:
-            logging.info(f"File {filename} was saved successfully")
+            logger.info(f"File {filename} was saved successfully")
         elif status == STATUS_FILE_DELETED:
-            logging.info("File deleted")
+            logger.info("File deleted")
         elif status == FAILURE:
-            logging.error("Server error")
+            logger.error("Server error")
         else:
-            logging.warning(f"Unknown status code: {status}")
+            logger.warning(f"Unknown status code: {status}")
 
-    # Decorator for logging
+    # Decorator for logger
     def log_operation(op_name):
         def decorator(func):
             def wrapper(self, *args, **kwargs):
@@ -138,7 +182,7 @@ class Client:
                         filename = self.filenames[args[0]]
                     except IndexError:
                         pass
-                print(
+                logger.debug(
                     f"Sending message to {op_name} the file: {filename if filename else 'N/A'}"
                 )
                 return func(self, *args, **kwargs)
@@ -153,7 +197,7 @@ class Client:
             message_get_list = self.create_message(OP_LIST, 0)
             self.send_and_receive(message_get_list)
         else:
-            print("No filenames found!")
+            logger.error("No filenames found!")
 
     @log_operation("save")
     def test_save(self, file_index):
@@ -179,11 +223,11 @@ class Client:
 
 
 def main():
-    logging.info("1. Generating random ID")
+    logger.debug("1. Generating random ID")
     random_id = random.getrandbits(32)
-    logging.info(f"Random ID: {random_id}")
+    logger.debug(f"Random ID: {random_id}")
 
-    logging.info("2. Reading server configuration from server.info")
+    logger.debug("2. Reading server configuration from server.info")
     with open("server.info", "r") as f:
         server_address, server_port = f.readline().strip().split(":")
     server_port = int(server_port)
@@ -205,10 +249,11 @@ def main():
     ]
 
     for idx, (operation, file_index) in enumerate(operations, start=4):
-        logging.info(f"{idx}. {'='*10}")
+        logger.debug(f"{idx}. {'='*10}")
         operation(file_index)
 
-    logging.info("11. Quitting the client")
+    logger.debug("11. Quitting the client")
+
 
 if __name__ == "__main__":
     main()
