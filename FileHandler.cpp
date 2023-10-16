@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <dirent.h>
-#include <spdlog/spdlog.h>
+#include "LoggerModule.hpp"
 
 FileHandler::FileHandler(const std::string &folder_path) : folder_path_(folder_path)
 {
@@ -16,11 +16,11 @@ FileHandler::FileHandler(const std::string &folder_path) : folder_path_(folder_p
 
 std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &filename, const std::string &content)
 {
-  spdlog::debug("Starting to save file: {}", filename);
+  DEBUG_LOG("Starting to save file: {}", filename);
 
   if (content.empty())
   {
-    spdlog::warn("Provided content for file {} is empty", filename);
+    WARN_LOG("Provided content for file {} is empty", filename);
     return pack_response(Status::FAILURE, OP_SAVE_FILE, filename);
   }
 
@@ -32,7 +32,7 @@ std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &fi
 
   if (!ofs)
   {
-    spdlog::error("Failed to open file {} for writing", full_path);
+    ERROR_LOG("Failed to open file {} for writing", full_path);
     return pack_response(Status::FAILURE, OP_SAVE_FILE, filename);
   }
 
@@ -41,11 +41,11 @@ std::vector<char> FileHandler::save_file(uint32_t user_id, const std::string &fi
 
   if (ofs.fail())
   {
-    spdlog::error("Failed to write to file {}", full_path);
+    ERROR_LOG("Failed to write to file {}", full_path);
     return pack_response(Status::FAILURE, OP_SAVE_FILE, filename);
   }
 
-  spdlog::debug("Successfully saved file {}", filename);
+  DEBUG_LOG("Successfully saved file {}", filename);
   return pack_response(Status::SUCCESS_SAVE, OP_SAVE_FILE, filename);
 }
 
@@ -57,18 +57,18 @@ std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string 
   std::string full_path = constructPath(user_id) + "/" + filename;
 
   // Debugging output
-  spdlog::debug("Trying to restore file at path: {}", full_path);
+  DEBUG_LOG("Trying to restore file at path: {}", full_path);
 
   if (!boost::filesystem::exists(full_path))
   {
-    spdlog::error("File does not exist: {}", full_path);
+    WARN_LOG("File \"{}\" does not exist. Was it delet recenetly?", full_path);
     return pack_response(Status::ERROR_FILE_NOT_FOUND, OP_RESTORE_FILE, filename);
   }
 
   std::ifstream ifs(full_path, std::ios::binary);
   if (!ifs.is_open())
   {
-    spdlog::error("Failed to open file for reading: {}", full_path);
+    ERROR_LOG("Failed to open file for reading: {}", full_path);
     return pack_response(Status::ERROR_FILE_NOT_FOUND, OP_RESTORE_FILE, filename);
   }
 
@@ -76,11 +76,11 @@ std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string 
   {
     std::string content((std::istreambuf_iterator<char>(ifs)), std::istreambuf_iterator<char>());
     file_contents_ = content;
-    spdlog::debug("Successfully read content of size: {} bytes", file_contents_.size());
+    DEBUG_LOG("Successfully read content of size: {} bytes", file_contents_.size());
   }
   catch (const std::exception &e)
   {
-    spdlog::error("Exception caught while reading file: {}", e.what());
+    ERROR_LOG("Exception caught while reading file: {}", e.what());
     return pack_response(Status::FAILURE, OP_RESTORE_FILE, filename);
   }
 
@@ -112,7 +112,6 @@ std::vector<char> FileHandler::get_file_list(uint32_t user_id)
   file_list_ = file_list;
   return pack_response(Status::SUCCESS_FILE_LIST, OP_GET_FILE_LIST, file_list_.front());
 }
-#include <spdlog/spdlog.h>
 
 std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
                                              const std::string &filename)
@@ -181,7 +180,7 @@ std::vector<char> FileHandler::pack_response(Status status, uint8_t op_,
   pushToBuffer(payload_size);
   responseBuffer.insert(responseBuffer.end(), payload.begin(), payload.end());
 
-  spdlog::debug("Packed response of size {} bytes for operation {} with status code {}",
+  DEBUG_LOG("Packed response of size {} bytes for operation {} with status code {}",
                 responseBuffer.size(), op_, status_code);
 
   return responseBuffer;

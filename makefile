@@ -1,6 +1,6 @@
 # Compiler options
 CXX = g++
-CXXFLAGS = -std=c++14 -Wall -Wextra -pedantic -g -I$(BOOST_INCLUDE)  # Added -g here
+CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -g -I$(BOOST_INCLUDE)  # Added -g here
 LDFLAGS = -L$(BOOST_LIB) -L$(FMT_LIB)  # If FMT_LIB is needed
 
 # Boost library options

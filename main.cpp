@@ -2,6 +2,8 @@
 #include <boost/asio.hpp>
 #include <fstream>
 #include <iostream>
+#include "LoggerModule.hpp"
+#include <boost/filesystem.hpp>
 
 using boost::asio::ip::tcp;
 
@@ -12,16 +14,40 @@ private:
   const std::string folder_path_ = "backupsvr";
 
   void do_accept() {
+    check_folder_path();
     acceptor_.async_accept(socket_, [this](boost::system::error_code ec) {
       if (!ec) {
         std::make_shared<Session>(std::move(socket_), folder_path_)->start();
       } else {
-        std::cerr << "Error accepting connection: " << ec.message()
-                  << std::endl;
+        ERROR_LOG("Error accepting connection: ", ec.message());
       }
       // Always try to accept new connections
       do_accept();
     });
+  }
+
+  void check_folder_path() {
+    try
+    {
+      if (!boost::filesystem::exists(folder_path_))
+      {
+        WARN_LOG("Folder {} does not exist. Creating it now...", folder_path_);
+        boost::filesystem::create_directory(folder_path_);
+      }
+      else
+      {
+        if (!boost::filesystem::is_directory(folder_path_))
+        {
+          CRITICAL_LOG("Path {} is not a directory. Exiting...", folder_path_);
+          exit(1);
+        }
+      }
+    }
+    catch (const boost::filesystem::filesystem_error &e)
+    {
+      CRITICAL_LOG("Error in checking folder path: {}", e.what());
+      exit(1);
+    }
   }
 
 public:
@@ -44,7 +70,7 @@ bool parse_server_info(const std::string &filename, std::string &ip_address_str,
         port_number = std::stoi(ip_port_str.substr(colon_pos + 1));
         return true;
       } catch (const std::exception &e) {
-        std::cerr << "Error parsing port number: " << e.what() << std::endl;
+        ERROR_LOG("Error parsing port number: ", e.what());
         return false;
       }
     }
@@ -52,19 +78,15 @@ bool parse_server_info(const std::string &filename, std::string &ip_address_str,
   return false;
 }
 
-#include <spdlog/spdlog.h> // Assuming you've included spdlog
-#include <spdlog/sinks/stdout_color_sinks.h>
+
 
 int main() {
-  auto console = spdlog::stdout_color_mt("console");
-  spdlog::set_level(spdlog::level::debug); // Set global log level to debug
+  LoggerModule::init();
   std::string ip_address_str;
   int port_number = 0;
 
   if (parse_server_info("server.info", ip_address_str, port_number)) {
-    std::cout << "IP address: " << ip_address_str << std::endl;
-    std::cout << "Port number: " << port_number << std::endl;
-
+    DEBUG_LOG("Initialized server: [IP address: {}] [port number: {}]", ip_address_str, port_number);
     try {
       boost::asio::ip::address ip_address =
           boost::asio::ip::address::from_string(ip_address_str);
@@ -72,15 +94,14 @@ int main() {
       tcp::endpoint endpoint(ip_address, port_number);
       boost::asio::io_context io_context;
 
-      std::cout << "Starting server... press Ctrl+C to quit" << std::endl;
+      LOG("Starting server... press Ctrl+C to quit");
       Server server(io_context, endpoint);
       io_context.run();
     } catch (const std::exception &e) {
-      std::cerr << "Error: " << e.what() << std::endl;
+      ERROR_LOG("Error in starting server: {}", e.what());
     }
   } else {
-    std::cerr << "Error: Failed to parse server.info file or invalid format."
-              << std::endl;
+    ERROR_LOG("Error: Failed to parse server.info file or invalid format. Please check the file and try again.");
   }
 
   return 0;
