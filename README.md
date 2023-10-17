@@ -76,6 +76,75 @@ This program is designed to perform various file operations such as saving, rest
    python3 tester.py
    ```
 
+## Cool Logger 🌟
+
+The project includes a "Cool Logger" module for efficient and colorful logging. Here are the key features of the logger:
+
+- **Log Location Information:** Each log entry includes the file and line number where the log message was generated. This provides valuable context for debugging.
+
+    ```bash
+    [CoolLogger.cpp:10] [info] This is an info message
+    [CoolLogger.cpp:11] [error] This is an error message
+    [CoolLogger.cpp:12] [critical] This is a critical message
+    [CoolLogger.cpp:13] [warning] This is a warning message
+    [CoolLogger.cpp:14] [debug] This is a debug message
+    ```
+
+- **Hexadecimal Dump:** The logger supports hexadecimal dumps for binary data, making it easier to inspect binary content in log messages.
+
+    ```cpp
+    LOG("This is a message with a hexdump:", data);
+    ```
+
+    Output:
+
+    ```bash
+    [CoolLogger.cpp:17] [info] This is a message with a hexdump: 48 65 6c 6c
+    ```
+
+- **Colored Log Levels:** Log levels (e.g., info, error, critical, warn, debug) are displayed in color for easy identification.
+
+    Example: [INFO], [ERROR], [CRITICAL]
+
+- **Dynamic Log Level Detection:** The logger automatically detects the log level based on the log method used, simplifying log message creation.
+
+### Logger Usage 🛠️
+
+Integrating the Cool Logger into your code is a breeze:
+
+1. Include the `LoggerModule.hpp` header.
+2. Initialize the logger using `LoggerModule::init()`.
+3. Employ the provided macros like `LOG`, `ERROR_LOG`, `CRITICAL_LOG`, `WARN_LOG`, and `DEBUG_LOG`, and employ `{}` for string formatting.
+
+The Cool Logger streamlines the process, handling log level detection, file and line number tracking, and even hexadecimal dumps. Logging is now effortless and stylish!
+
+For a complete example, refer to `CoolLogger.cpp`:
+
+```cpp
+int main()
+{
+  // Initialize the logger
+  LoggerModule::init();
+
+  // Log messages with different log levels
+  LOG("This is an info message");
+  ERROR_LOG("This is an error message");
+  CRITICAL_LOG("This is a critical message");
+  WARN_LOG("This is a warning message");
+  DEBUG_LOG("This is a debug message");
+
+  // Log a message with a hexadecimal dump
+  std::vector<unsigned char> data = {0x48, 0x65, 0x6C, 0x6C};
+  LOG("This is a message with a hexdump:", data);
+
+  return 0;
+}
+```
+
+With these features, the "Cool Logger" module simplifies logging and debugging while adding a touch of style
+
+---
+
 ### Notable Updates 🌟
 
 - The client transitioned from procedural design to object-oriented programming for improved maintainability.
