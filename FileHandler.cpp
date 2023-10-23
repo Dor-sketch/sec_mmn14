@@ -61,7 +61,7 @@ std::vector<char> FileHandler::restore_file(uint32_t user_id, const std::string 
 
   if (!boost::filesystem::exists(full_path))
   {
-    WARN_LOG("File \"{}\" does not exist. Was it delet recenetly?", full_path);
+    WARN_LOG("File \"{}\" does not exist. Was it deleted recenetly?", full_path);
     return pack_response(Status::ERROR_FILE_NOT_FOUND, OP_RESTORE_FILE, filename);
   }
 

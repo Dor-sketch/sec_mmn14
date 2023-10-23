@@ -141,7 +141,39 @@ int main()
 }
 ```
 
-With these features, the "Cool Logger" module simplifies logging and debugging while adding a touch of style
+---
+
+### Adjusting the Log Level 🛠️
+
+The logger supports modulating the log level based on the compilation mode. This is done by defining a specific macro in the `Makefile`. To change the log level, simply compile the program in the desired mode:
+
+- **Debug Mode**: When the program is compiled in debug mode, the logger will display all log levels.
+
+    ```bash
+    make debug
+    ./logger_app
+    ```
+    Output:
+    ```bash
+    [CoolLogger.cpp:10] [info] This is an info message
+    [CoolLogger.cpp:11] [error] This is an error message
+    [CoolLogger.cpp:12] [critical] This is a critical message
+    ```
+
+- **Release Mode**: When the program is compiled in release mode, the logger will only display error, critical, and warning messages.
+
+    ```bash
+    make
+    ./logger_app
+    ```
+    Output:
+    ```bash
+    [CoolLogger.cpp:11] [error] This is an error message
+    [CoolLogger.cpp:12] [critical] This is a critical message
+    [CoolLogger.cpp:13] [warning] This is a warning message
+    ```
+
+With these features, the "Cool Logger" module simplifies logging and debugging while adding a touch of style.
 
 ---
 

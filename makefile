@@ -1,7 +1,7 @@
 # Compiler options
 CXX = g++
-CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -g -I$(BOOST_INCLUDE)  # Added -g here
-LDFLAGS = -L$(BOOST_LIB) -L$(FMT_LIB)  # If FMT_LIB is needed
+CXXFLAGS = -std=c++17 -Wall -Wextra -pedantic -g -I$(BOOST_INCLUDE)
+LDFLAGS = -L$(BOOST_LIB) -L$(FMT_LIB)
 
 # Boost library options
 BOOST_ROOT = /path/to/boost
@@ -10,7 +10,7 @@ BOOST_LIB = $(BOOST_ROOT)/lib
 BOOST_LIBS = -lboost_system -lboost_filesystem
 
 # FMT library options (if needed)
-FMT_LIB = /path/to/fmt/lib  # Only if fmt is in a custom location
+FMT_LIB = /path/to/fmt/lib
 FMT_LIBS = -lfmt
 
 # Source files
@@ -23,7 +23,12 @@ OBJS = $(SRCS:.cpp=.o)
 EXEC = server_app
 
 # Targets
+.PHONY: all debug clean
+
 all: $(EXEC)
+
+debug: CXXFLAGS += -DENABLE_DEBUG_LOGGING
+debug: all
 
 $(EXEC): $(OBJS)
 	$(CXX) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $(EXEC) $(BOOST_LIBS) $(FMT_LIBS)

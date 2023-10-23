@@ -94,14 +94,14 @@ int main() {
       tcp::endpoint endpoint(ip_address, port_number);
       boost::asio::io_context io_context;
 
-      LOG("Starting server... press Ctrl+C to quit");
+      LOG("Starting server... press Ctrl+C to quit","");
       Server server(io_context, endpoint);
       io_context.run();
     } catch (const std::exception &e) {
       ERROR_LOG("Error in starting server: {}", e.what());
     }
   } else {
-    ERROR_LOG("Error: Failed to parse server.info file or invalid format. Please check the file and try again.");
+    ERROR_LOG("Error: Failed to parse server.info file or invalid format. Please check the file and try again.","");
   }
 
   return 0;
