@@ -1,11 +1,12 @@
-![back-up_server_cover](https://github.com/Dor-sketch/sec_mmn14/assets/138825033/61e66d6d-08f4-4dac-943e-3e2c5415e1da)
-
-
 # Backup Server 💾
 
 ## Description 📝
 
 This program is designed to perform various file operations such as saving, restoring, and deleting files on a server. It is implemented using C++ and Python and utilizes the Boost.Asio library for asynchronous I/O operations. The program features dynamic parsing utilities to support very large files.
+
+---
+
+![back-up_server_cover](https://github.com/Dor-sketch/sec_mmn14/assets/138825033/61e66d6d-08f4-4dac-943e-3e2c5415e1da)
 
 ## Server Details 🖥️
 
