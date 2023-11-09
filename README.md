@@ -1,3 +1,6 @@
+![back-up_server_cover](https://github.com/Dor-sketch/sec_mmn14/assets/138825033/61e66d6d-08f4-4dac-943e-3e2c5415e1da)
+
+
 # Backup Server 💾
 
 ## Description 📝
